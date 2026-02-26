@@ -1,0 +1,42 @@
+{
+  "$schema": "Template — Genie Space configuration",
+  "$instructions": [
+    "Genie Space creation requires multiple PATCH calls. The table_identifiers field is SILENTLY IGNORED.",
+    "Tables MUST be set via serialized_space with sorted dotted identifiers.",
+    "",
+    "Step 1: Create a blank Genie Space via POST:",
+    "  databricks api post /api/2.0/genie/spaces --json '{\"serialized_space\": \"{\\\"version\\\": 2}\", \"warehouse_id\": \"<warehouse-id>\"}' --profile=<profile>",
+    "  # Returns: {\"space_id\": \"abc123...\"}",
+    "",
+    "Step 2: PATCH title and description (these work directly):",
+    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"title\": \"...\", \"description\": \"...\"}' --profile=<profile>",
+    "",
+    "Step 3: PATCH tables via serialized_space (ONLY way that works):",
+    "  Tables must be dotted 3-part names (catalog.schema.table), SORTED ALPHABETICALLY.",
+    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"serialized_space\": \"{\\\"version\\\":2,\\\"data_sources\\\":{\\\"tables\\\":[{\\\"identifier\\\":\\\"catalog.schema.table1\\\"},{\\\"identifier\\\":\\\"catalog.schema.table2\\\"}]}}\"}' --profile=<profile>",
+    "",
+    "Step 4: PATCH instructions (optional but recommended):",
+    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"instructions\": \"...\"}' --profile=<profile>",
+    "",
+    "Step 5: VERIFY tables are attached (table_identifiers in GET is always empty — check serialized_space):",
+    "  databricks api get /api/2.0/genie/spaces/<space_id>?include_serialized_space=true --profile=<profile>",
+    "",
+    "Step 6: Grant CAN_RUN permissions (endpoint is /permissions/genie/{id}, NOT /permissions/genie/spaces/{id}):",
+    "  databricks api patch /api/2.0/permissions/genie/<space_id> --json '{\"access_control_list\": [{\"group_name\": \"users\", \"permission_level\": \"CAN_RUN\"}]}' --profile=<profile>",
+    "",
+    "Step 7: Reference the Genie Space ID in the MAS config (agent_type: genie-space)"
+  ],
+  "name": "TODO Demo Data",
+  "description": "Natural language interface to TODO demo Delta Lake tables",
+  "warehouse_id": "TODO",
+  "tables": [
+    {
+      "$comment": "List tables as dotted 3-part identifiers, SORTED ALPHABETICALLY. These go into serialized_space, NOT table_identifiers.",
+      "identifier": "TODO_CATALOG.TODO_SCHEMA.TODO_TABLE_1"
+    },
+    {
+      "identifier": "TODO_CATALOG.TODO_SCHEMA.TODO_TABLE_2"
+    }
+  ],
+  "instructions": "You are a data assistant for the TODO domain. Answer questions about TODO using SQL queries against the connected tables. Always provide specific numbers and be precise."
+}

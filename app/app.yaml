@@ -1,0 +1,40 @@
+command:
+  - uvicorn
+  - backend.main:app
+  - --host
+  - 0.0.0.0
+  - --port
+  - 8000
+
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "TODO"
+  - name: CATALOG
+    value: "TODO"
+  - name: SCHEMA
+    value: "TODO"
+  - name: MAS_TILE_ID
+    value: "TODO"
+  - name: GENIE_SPACE_ID
+    value: "TODO"
+  - name: KA_TILE_ID
+    value: "TODO"
+  - name: DEMO_NAME
+    value: "TODO"
+  - name: DEMO_CUSTOMER
+    value: "TODO"
+
+resources:
+  - name: sql-warehouse
+    sql_warehouse:
+      id: "TODO"                          # SQL warehouse ID from workspace
+      permission: CAN_USE
+  - name: mas-endpoint
+    serving_endpoint:
+      name: "mas-TODO-endpoint"           # Format: mas-{first 8 chars of MAS tile_id}-endpoint
+      permission: CAN_QUERY
+  - name: database
+    database:
+      instance_name: "TODO"               # Lakebase instance name (hyphens, NOT underscores)
+      database_name: "TODO"               # Lakebase database name
+      permission: CAN_CONNECT_AND_CREATE

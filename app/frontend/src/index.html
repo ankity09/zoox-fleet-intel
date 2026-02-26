@@ -1,0 +1,2573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo App</title>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/@panzoom/panzoom@4.6.1/dist/panzoom.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSS VARIABLES — Customize these to rebrand the entire app
+   TODO(vibe): Ask the user what color scheme / brand they want, then update these.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --primary: #1a2332;         /* Main dark — sidebar, headers */
+  --primary-light: #243447;
+  --primary-dark: #111922;
+  --accent: #f59e0b;          /* CTA / highlight color */
+  --accent-hover: #d97706;
+  --green: #10b981;
+  --green-bg: #d1fae5;
+  --red: #ef4444;
+  --red-bg: #fee2e2;
+  --yellow-bg: #fef3c7;
+  --blue: #3b82f6;
+  --blue-bg: #dbeafe;
+  --white: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --steel: #64748b;
+  --steel-light: #94a3b8;
+  --steel-bg: #f1f5f9;
+  --border: #e2e8f0;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.1);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,.15);
+  --transition-fast: .15s ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--steel-bg); color: var(--text); display:flex; height:100vh; overflow:hidden; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT — Vibe replaces this section to match the user's preferred layout.
+   Current: sidebar + topbar (common starting point). Alternatives:
+   - Top nav only (no sidebar)
+   - Dashboard-first with floating chat
+   - Full-screen dashboard with tabs
+   ═══════════════════════════════════════════════════════════════════════════ */
+#sidebar { width: 240px; background: var(--primary); color: #fff; display:flex; flex-direction:column; flex-shrink:0; }
+#sidebar .logo { padding: 20px; border-bottom: 1px solid var(--primary-light); }
+#sidebar .logo h1 { font-size: 16px; font-weight: 700; letter-spacing: .5px; }
+#sidebar .logo span { font-size: 11px; color: var(--steel-light); display:block; margin-top:4px; }
+#sidebar nav { flex:1; padding: 12px 0; }
+#sidebar nav a { display:flex; align-items:center; gap:10px; padding: 10px 20px; color: var(--steel-light); text-decoration:none; font-size:13px; transition: all .15s; border-left: 3px solid transparent; }
+#sidebar nav a:hover { background: var(--primary-light); color:#fff; }
+#sidebar nav a.active { background: var(--primary-light); color:#fff; border-left-color: var(--accent); }
+#sidebar nav a .icon { width:18px; text-align:center; font-size:15px; }
+#sidebar .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--primary-light); font-size: 10px; color: var(--steel); }
+#main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+#topbar { background:#fff; border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; }
+#topbar h2 { font-size:18px; font-weight:600; }
+#content { flex:1; overflow-y:auto; padding:24px; }
+.page { display:none; transition:opacity .2s ease; }
+.page.active { display:block; }
+.page.fade-in { animation:pageFadeIn .25s ease forwards; }
+@keyframes pageFadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENT TOOLKIT — Reusable CSS classes. Use freely in any page.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Cards & KPIs ────────────────────────────────────────────────── */
+.kpi-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:#fff; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border-top:3px solid var(--primary); transition:opacity .3s ease, transform .3s ease; }
+.kpi-card.accent { border-top-color: var(--accent); }
+.kpi-card.green { border-top-color: var(--green); }
+.kpi-card.red { border-top-color: var(--red); }
+.kpi-card.blue { border-top-color: var(--blue); }
+.kpi-card .kpi-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; }
+.kpi-card .kpi-value { font-size:28px; font-weight:700; margin:6px 0 2px; }
+.kpi-card .kpi-sub { font-size:11px; color:var(--text-muted); }
+.kpi-animate { opacity:0; transform:translateY(8px); }
+.kpi-animate.kpi-visible { opacity:1; transform:translateY(0); }
+.card { background:#fff; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:20px; }
+.card h3 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--primary); }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+@media(max-width:900px) { .grid-2,.grid-3 { grid-template-columns:1fr; } }
+
+/* ─── Tables ──────────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { background:var(--steel-bg); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.5px; padding:10px 12px; text-align:left; position:sticky; top:0; }
+td { padding:10px 12px; border-bottom:1px solid var(--border); }
+tr:hover td { background:#f8fafc; }
+.clickable-row { cursor:pointer; }
+.clickable-row:hover td { background:rgba(59,130,246,.06); transition:background var(--transition-fast); }
+
+/* ─── Badges ──────────────────────────────────────────────────────── */
+.badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+.badge-critical { background:var(--red); color:#fff; }
+.badge-high { background:var(--red-bg); color:#991b1b; }
+.badge-medium { background:var(--yellow-bg); color:#92400e; }
+.badge-low { background:var(--green-bg); color:#065f46; }
+.badge-open { background:var(--accent); color:#fff; }
+.badge-in_progress { background:var(--blue-bg); color:#1d4ed8; }
+.badge-pending_approval { background:var(--yellow-bg); color:#92400e; }
+.badge-approved { background:var(--green-bg); color:#065f46; }
+.badge-resolved { background:var(--green-bg); color:#065f46; }
+.badge-dismissed { background:#f3f4f6; color:#6b7280; }
+.badge-failed { background:var(--red-bg); color:#991b1b; }
+
+/* ─── Buttons ─────────────────────────────────────────────────────── */
+.filter-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+.filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:#fff; }
+.btn { padding:8px 16px; border:none; border-radius:var(--radius); font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent-hover); }
+.btn-secondary { background:var(--primary); color:#fff; }
+.btn-secondary:hover { background:var(--primary-light); }
+.btn-sm { padding:5px 10px; font-size:12px; }
+.btn-blue { background:var(--blue); color:#fff; }
+.btn-blue:hover { background:#2563eb; }
+.btn-green { background:var(--green); color:#fff; }
+.btn-green:hover { background:#059669; }
+.btn-steel { background:var(--steel); color:#fff; }
+.btn-steel:hover { background:var(--primary-light); }
+
+/* ─── Pills ───────────────────────────────────────────────────────── */
+.pill { display:inline-flex; align-items:center; gap:4px; font-size:10px; padding:2px 8px; border-radius:10px; font-weight:500; }
+.pill-blue { background:var(--blue-bg); color:var(--blue); }
+.pill-green { background:var(--green-bg); color:#065f46; }
+.pill-live { position:relative; padding-left:16px; }
+.pill-live::before { content:''; position:absolute; left:6px; top:50%; transform:translateY(-50%); width:6px; height:6px; border-radius:50%; background:var(--green); animation:agentPulse 2s ease-in-out infinite; }
+
+/* ─── Detail Panel (slide-out) ────────────────────────────────────── */
+#detail-panel { position:fixed; top:0; right:-500px; width:480px; height:100vh; background:#fff; box-shadow:-4px 0 20px rgba(0,0,0,.15); z-index:100; transition:right .3s; display:flex; flex-direction:column; }
+#detail-panel.open { right:0; }
+#detail-panel .dp-header { padding:16px 20px; background:var(--primary); color:#fff; display:flex; justify-content:space-between; align-items:center; }
+#detail-panel .dp-header h3 { font-size:15px; }
+#detail-panel .dp-close { background:none; border:none; color:#fff; font-size:20px; cursor:pointer; }
+#detail-panel .dp-body { flex:1; overflow-y:auto; padding:20px; }
+.dp-field { margin-bottom:14px; }
+.dp-field label { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; display:block; margin-bottom:3px; }
+.dp-field .val { font-size:14px; font-weight:500; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STARTER: AI Chat — Full SSE streaming with action cards + follow-ups
+   ═══════════════════════════════════════════════════════════════════════════ */
+#chat-messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
+.chat-msg { max-width:80%; padding:12px 16px; border-radius:12px; font-size:13px; line-height:1.5; }
+.chat-msg.user { align-self:flex-end; background:var(--primary); color:#fff; border-bottom-right-radius:4px; }
+.chat-msg.assistant { align-self:flex-start; background:#fff; border:1px solid var(--border); border-bottom-left-radius:4px; }
+.chat-steps { font-size:11px; color:var(--text-muted); margin-bottom:6px; display:flex; flex-direction:column; gap:4px; }
+.chat-step { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:3px 0; }
+.chat-step .step-icon { width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; }
+.chat-step .step-icon.thinking { background:#e0e7ff; color:#4f46e5; }
+.chat-step .step-icon.agent { background:#dcfce7; color:#16a34a; }
+.chat-step .step-icon.data { background:#fef3c7; color:#d97706; }
+.chat-step .step-icon.done { background:#dcfce7; color:#16a34a; }
+.chat-step .step-label { opacity:.85; }
+.chat-step .step-preview { width:100%; margin:2px 0 2px 22px; font-size:10px; color:var(--text-muted); background:#f8f9fa; border-radius:4px; padding:4px 8px; max-height:56px; overflow:hidden; line-height:1.4; border-left:2px solid var(--accent); opacity:.8; }
+.chat-step .step-preview code { font-size:10px; background:none; padding:0; }
+.chat-step.collapsed-counter { cursor:pointer; opacity:.7; }
+.chat-step.collapsed-counter:hover { opacity:1; }
+.chat-step.step-hidden { display:none; }
+.chat-step.step-hidden .step-preview { display:none; }
+@keyframes pulse { 0%,100% { opacity:.4; } 50% { opacity:1; } }
+.chat-step.active .step-icon { animation: pulse 1.2s ease-in-out infinite; }
+.chat-timer { font-size:10px; color:var(--text-muted); opacity:.7; font-variant-numeric:tabular-nums; margin-top:2px; display:flex; align-items:center; gap:4px; }
+.chat-timer .timer-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.chat-timer.stopped .timer-dot { display:none; }
+.chat-timer.stopped { opacity:.5; }
+/* ─── Agent Thinking Block (collapsible reasoning) ─── */
+.thinking-block { margin-bottom:10px; border-left:2px solid var(--border,#d1d5db); padding-left:10px; }
+.thinking-toggle { font-size:12px; color:var(--text-muted,#6b7280); cursor:pointer; display:flex; align-items:center; gap:6px; user-select:none; padding:4px 0; }
+.thinking-toggle:hover { color:var(--text,#374151); }
+.thinking-chevron { font-size:10px; transition:transform .15s; display:inline-block; }
+.thinking-block.expanded .thinking-chevron { transform:rotate(90deg); }
+.thinking-body { display:none; margin-top:4px; font-size:12px; color:var(--text-muted,#6b7280); line-height:1.5; white-space:pre-line; }
+.thinking-block.expanded .thinking-body { display:block; }
+#chat-input-area { padding:16px 20px; border-top:1px solid var(--border); display:flex; gap:8px; background:#fff; align-items:center; }
+#chat-input { flex:1; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; outline:none; }
+#chat-input:focus { border-color:var(--accent); }
+.auto-approve-toggle { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted); white-space:nowrap; cursor:pointer; user-select:none; }
+.auto-approve-toggle input[type="checkbox"] { display:none; }
+.auto-approve-toggle .toggle-track { width:28px; height:16px; border-radius:8px; background:#cbd5e1; position:relative; transition:background .2s; flex-shrink:0; }
+.auto-approve-toggle input:checked + .toggle-track { background:var(--accent); }
+.auto-approve-toggle .toggle-track::after { content:''; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#fff; transition:transform .2s; }
+.auto-approve-toggle input:checked + .toggle-track::after { transform:translateX(12px); }
+.chat-toolbar { display:flex; align-items:center; gap:6px; padding:6px 20px; border-top:1px solid var(--border); background:#f8fafc; }
+.chat-toolbar .chat-tb-btn { display:none; align-items:center; gap:4px; padding:4px 10px; border:1px solid var(--border); border-radius:var(--radius); background:#fff; font-size:11px; color:var(--text-muted); cursor:pointer; transition:all .15s; }
+.chat-toolbar .chat-tb-btn:hover { border-color:var(--accent); color:var(--text); }
+.chat-toolbar .chat-tb-btn.visible { display:inline-flex; }
+.chat-toolbar .chat-tb-btn.stop { border-color:#ef4444; color:#ef4444; }
+.chat-toolbar .chat-tb-btn.stop:hover { background:#fef2f2; }
+.suggested-prompts { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.suggested-prompts button { background:#fff; border:1px solid var(--border); border-radius:16px; padding:6px 12px; font-size:11px; cursor:pointer; color:var(--text-muted); transition:all .15s; }
+.suggested-prompts button:hover { border-color:var(--accent); color:var(--text); }
+.chat-action-card { background:var(--steel-bg); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-top:8px; }
+.chat-action-card .ac-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.chat-action-card .ac-icon { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.chat-action-card .ac-title { font-size:12px; font-weight:600; color:var(--text); }
+.chat-action-card .ac-badge { font-size:10px; padding:2px 6px; border-radius:10px; font-weight:500; }
+.chat-action-card .ac-details { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; font-size:11px; color:var(--text-muted); margin-bottom:10px; }
+.chat-action-card .ac-details strong { color:var(--text); font-weight:500; }
+.chat-action-card .ac-buttons { display:flex; gap:6px; }
+.chat-action-card .ac-btn { padding:5px 12px; border-radius:5px; font-size:11px; font-weight:500; border:none; cursor:pointer; transition:all .15s; }
+.chat-action-card .ac-btn.approve { background:var(--green); color:#fff; }
+.chat-action-card .ac-btn.approve:hover { background:#059669; }
+.chat-action-card .ac-btn.escalate { background:var(--accent); color:#fff; }
+.chat-action-card .ac-btn.escalate:hover { background:var(--accent-hover); }
+.chat-action-card .ac-btn.dismiss { background:#fff; color:var(--text-muted); border:1px solid var(--border); }
+.chat-action-card .ac-btn.dismiss:hover { background:var(--red-bg); color:var(--red); border-color:var(--red); }
+.chat-action-card .ac-btn:disabled { opacity:.5; cursor:default; }
+.chat-action-card.resolved { opacity:.7; }
+.chat-action-card.resolved .ac-buttons { display:none; }
+.chat-action-card.resolved .ac-result { font-size:11px; font-weight:500; padding:4px 0; }
+.chat-action-card.resolved .ac-result.approved { color:var(--green); }
+.chat-action-card.resolved .ac-result.dismissed { color:var(--text-muted); }
+/* ─── MCP Approval Card ─── */
+.mcp-approval-card { background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border:1px solid var(--accent); border-radius:var(--radius); padding:14px 16px; margin-top:10px; }
+.mcp-approval-header { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--accent); margin-bottom:10px; }
+.mcp-approval-icon { font-size:16px; }
+.mcp-approval-tools { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.mcp-tool-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(255,255,255,0.05); border-radius:6px; flex-wrap:wrap; }
+.mcp-tool-icon { font-size:14px; }
+.mcp-tool-name { font-size:12px; font-weight:600; color:#e2e8f0; font-family:monospace; }
+.mcp-tool-server { font-size:11px; color:var(--text-muted); }
+.mcp-args { width:100%; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.08); }
+.mcp-arg { font-size:10px; color:var(--text-muted); }
+.mcp-arg strong { color:var(--steel-light); }
+.mcp-approval-buttons { display:flex; gap:8px; }
+.mcp-btn { padding:6px 16px; border-radius:6px; font-size:12px; font-weight:600; border:none; cursor:pointer; transition:all .15s; }
+.mcp-btn.approve { background:var(--green); color:#fff; }
+.mcp-btn.approve:hover { background:#059669; }
+.mcp-btn.deny { background:transparent; color:var(--text-muted); border:1px solid var(--border); }
+.mcp-btn.deny:hover { background:var(--red-bg); color:var(--red); border-color:var(--red); }
+.mcp-btn:disabled { opacity:.5; cursor:default; pointer-events:none; }
+.mcp-btn.approved { background:var(--green); opacity:1; }
+.mcp-btn.denied { background:var(--red); color:#fff; opacity:1; }
+.chat-followups { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.chat-followups button { background:#fff; border:1px solid var(--blue); color:var(--blue); border-radius:14px; padding:5px 12px; font-size:11px; cursor:pointer; transition:all .15s; }
+.chat-followups button:hover { background:var(--blue); color:#fff; }
+.typing-indicator { display:inline-flex; gap:4px; padding:8px 12px; align-items:center; }
+.typing-indicator span { width:6px; height:6px; border-radius:50%; background:var(--steel-light); animation:typing-bounce 1.4s ease-in-out infinite; }
+.typing-indicator span:nth-child(2) { animation-delay:.2s; }
+.typing-indicator span:nth-child(3) { animation-delay:.4s; }
+@keyframes typing-bounce { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-6px); } }
+.chat-welcome { background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%); color:#fff; border-radius:12px; padding:20px 24px; margin:12px 0; }
+.chat-welcome-avatar { width:40px; height:40px; border-radius:10px; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff; flex-shrink:0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STARTER: Agent Workflows — Cards, flow diagram, inline AI modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+.agent-status-bar { background:var(--primary); color:#fff; border-radius:var(--radius); padding:14px 20px; display:flex; align-items:center; gap:12px; margin-bottom:20px; font-size:13px; }
+.agent-pulse { width:10px; height:10px; border-radius:50%; background:var(--green); animation:agentPulse 2s ease-in-out infinite; flex-shrink:0; }
+@keyframes agentPulse { 0%,100%{opacity:.4;box-shadow:0 0 0 0 rgba(16,185,129,.4)} 50%{opacity:1;box-shadow:0 0 0 6px rgba(16,185,129,0)} }
+.wf-section { margin-bottom:24px; }
+.wf-section-header { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.wf-section-header .count { background:var(--steel-bg); color:var(--text-muted); border-radius:10px; padding:2px 8px; font-size:10px; }
+.wf-card { background:#fff; border-left:4px solid var(--border); border-radius:var(--radius); padding:16px 20px; margin-bottom:10px; cursor:pointer; box-shadow:var(--shadow); transition:all .15s; }
+.wf-card:hover { box-shadow:var(--shadow-lg); transform:translateY(-1px); }
+.wf-card.critical { border-left-color:var(--red); }
+.wf-card.high { border-left-color:var(--accent); }
+.wf-card.medium { border-left-color:#f59e0b; }
+.wf-card.low { border-left-color:var(--green); }
+.wf-card .wf-card-top { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.wf-card .wf-headline { font-size:14px; font-weight:600; flex:1; }
+.wf-card .wf-meta { font-size:11px; color:var(--text-muted); }
+.wf-card .wf-actions { display:flex; gap:6px; margin-top:10px; }
+.agent-filter-btn { background:var(--steel-bg); color:var(--text); border:1px solid var(--border); font-size:11px; padding:4px 12px; border-radius:14px; cursor:pointer; transition:all .15s; }
+.agent-filter-btn:hover { background:var(--primary-light); color:#fff; border-color:var(--primary-light); }
+.agent-filter-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.nav-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--red); color:#fff; font-size:9px; font-weight:700; margin-left:auto; }
+
+/* ─── Agent Flow Diagram ─────────────────────────────────────────── */
+.af-wrapper { margin-top:20px; }
+.af-wrapper > label { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; font-weight:700; display:block; margin-bottom:12px; }
+.af-diagram { position:relative; display:flex; flex-direction:column; align-items:center; gap:0; }
+.af-row { display:flex; justify-content:center; }
+.af-row-agents { display:flex; justify-content:center; gap:6px; flex-wrap:nowrap; }
+.af-node { display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border-radius:8px; padding:6px 10px; text-align:center; min-height:44px;
+  opacity:0; transform:scale(0.92); transition:opacity 0.25s ease, transform 0.25s ease; }
+.af-node.visible { opacity:1; transform:scale(1); }
+.af-node .af-label { font-size:11px; font-weight:600; line-height:1.2; }
+.af-node .af-sub { font-size:9px; line-height:1.2; margin-top:2px; opacity:0.85; }
+.af-trigger { background:var(--accent); color:#fff; width:180px; }
+.af-supervisor { background:var(--primary); color:#fff; width:200px; }
+.af-agent-active { background:var(--green); color:#fff; width:96px; cursor:default; position:relative; }
+.af-agent-inactive { background:var(--steel-bg); color:var(--steel); width:96px; border:1.5px dashed var(--steel-light); position:relative; }
+.af-outcome { background:var(--green-bg); color:var(--green); width:220px; border:1.5px solid var(--green); }
+.af-svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.af-gap { height:32px; width:100%; }
+.af-node .af-tooltip { display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+  width:260px; background:var(--primary); color:#fff; font-size:11px; line-height:1.5; padding:10px 12px;
+  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.25); z-index:20; text-align:left; pointer-events:none; }
+.af-node .af-tooltip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  border:6px solid transparent; border-top-color:var(--primary); }
+.af-node:hover .af-tooltip { display:block; }
+
+/* ─── Modal Overlay ──────────────────────────────────────────────── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:150; display:flex; align-items:center; justify-content:center; }
+.modal-content { width:1400px; max-width:96vw; height:92vh; max-height:92vh; border-radius:12px; background:#fff; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.modal-header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.modal-header h3 { font-size:16px; font-weight:600; margin:0; }
+.modal-header button { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); padding:0 4px; }
+.modal-header button:hover { color:var(--text); }
+.modal-body { flex:1; overflow-y:auto; padding:24px; }
+.modal-footer { padding:14px 24px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+.modal-two-col { display:flex; gap:32px; }
+.modal-col-left { flex:1; min-width:0; }
+.modal-col-right { width:540px; flex-shrink:0; }
+.ai-panel { margin-top:20px; border-top:1px solid var(--border); padding-top:16px; }
+.ai-panel-label { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.ai-panel-spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--blue-bg); border-top-color:var(--blue); border-radius:50%; animation:ai-spin .8s linear infinite; }
+.ai-panel-steps { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.ai-panel-step { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-muted); background:var(--steel-bg); padding:3px 8px; border-radius:10px; }
+.ai-panel-step.active { color:var(--blue); background:var(--blue-bg); }
+.ai-panel-answer { font-size:13px; line-height:1.65; color:var(--text); overflow-y:auto; flex:1; }
+.ai-panel-answer:empty { display:none; }
+
+/* ─── Utilities ──────────────────────────────────────────────────── */
+.pagination { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:16px; }
+.pagination .info { font-size:12px; color:var(--text-muted); }
+#flash { position:fixed; top:16px; right:16px; z-index:200; }
+.flash-msg { background:var(--green); color:#fff; padding:10px 16px; border-radius:var(--radius); font-size:13px; box-shadow:var(--shadow-lg); margin-bottom:8px; animation:flashIn .3s; }
+.flash-msg.error { background:var(--red); }
+@keyframes flashIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+.loading { text-align:center; padding:40px; color:var(--text-muted); font-size:13px; }
+.skeleton { display:flex; flex-direction:column; gap:10px; padding:20px; }
+.sk-row { height:14px; background:var(--border); border-radius:4px; animation:sk-pulse 1.5s ease-in-out infinite; }
+.sk-row:nth-child(1) { width:95%; }
+.sk-row:nth-child(2) { width:80%; }
+.sk-row:nth-child(3) { width:88%; }
+.sk-row:nth-child(4) { width:65%; }
+@keyframes sk-pulse { 0%,100% { opacity:0.4; } 50% { opacity:0.8; } }
+@keyframes ai-spin { to { transform:rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD — Greeting, KPIs, Exceptions, Briefing, Activity
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dash-greeting { background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--accent) 100%); color:#fff; border-radius:var(--radius); padding:20px 28px; margin-bottom:20px; }
+.dash-greeting h2 { font-size:20px; font-weight:700; margin-bottom:4px; }
+.dash-greeting p { font-size:13px; opacity:.85; line-height:1.5; }
+
+/* ─── Exception Cards ────────────────────────────────────────────── */
+.exc-card { background:#fff; border-left:4px solid var(--border); border-radius:var(--radius); padding:14px 18px; margin-bottom:10px; box-shadow:var(--shadow); transition:all .15s; }
+.exc-card:hover { box-shadow:var(--shadow-lg); }
+.exc-card.exc-critical { border-left-color:var(--red); }
+.exc-card.exc-high { border-left-color:#f97316; }
+.exc-card.exc-medium { border-left-color:var(--accent); }
+.exc-card.exc-low { border-left-color:var(--green); }
+.exc-card .exc-top { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.exc-card .exc-title { font-size:13px; font-weight:600; flex:1; }
+.exc-card .exc-desc { font-size:12px; color:var(--text-muted); line-height:1.5; margin-bottom:8px; }
+.exc-card .exc-actions { display:flex; gap:6px; }
+.exc-card .exc-meta { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+/* ─── Collapsible Sections ───────────────────────────────────────── */
+.collapsible-section .cs-header { display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 0; user-select:none; }
+.collapsible-section .cs-header h3 { margin:0; font-size:14px; font-weight:600; color:var(--primary); }
+.collapsible-section .cs-chevron { font-size:12px; color:var(--text-muted); transition:transform .2s; }
+.collapsible-section.collapsed .cs-chevron { transform:rotate(-90deg); }
+.collapsible-section .cs-body { overflow:hidden; transition:max-height .3s ease; }
+.collapsible-section.collapsed .cs-body { max-height:0 !important; }
+
+/* ─── Sparkline Canvas ───────────────────────────────────────────── */
+.kpi-sparkline { margin-top:6px; }
+
+/* ─── Reasoning Chain (workflow modal enhancement) ───────────────── */
+.rc-chain { display:flex; flex-direction:column; gap:0; margin-bottom:16px; }
+.rc-step { display:flex; gap:10px; position:relative; padding:8px 0; }
+.rc-step::before { content:''; position:absolute; left:11px; top:28px; bottom:-8px; width:2px; background:var(--border); }
+.rc-step:last-child::before { display:none; }
+.rc-step .rc-icon { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; z-index:1; }
+.rc-step .rc-icon.completed { background:var(--green-bg); color:var(--green); }
+.rc-step .rc-icon.active { background:var(--blue-bg); color:var(--blue); animation:pulse 1.2s ease-in-out infinite; }
+.rc-step .rc-icon.pending { background:var(--steel-bg); color:var(--steel); }
+.rc-step .rc-body { flex:1; min-width:0; }
+.rc-step .rc-label { font-size:12px; font-weight:600; color:var(--text); }
+.rc-step .rc-output { font-size:11px; color:var(--text-muted); line-height:1.4; margin-top:2px; cursor:pointer; }
+.rc-step .rc-output.collapsed { max-height:28px; overflow:hidden; }
+.rc-step .rc-output.expanded { max-height:none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ARCHITECTURE — INTERACTIVE PANZOOM DAG
+   ═══════════════════════════════════════════════════════════════════════════ */
+.arch-banner { background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--accent) 100%); color:#fff; border-radius:var(--radius); padding:14px 28px; margin-bottom:12px; text-align:center; }
+.arch-banner h2 { font-size:20px; font-weight:800; margin:0; }
+
+/* Column section labels */
+.arch-column-label { position:absolute; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#9ca3af; top:10px; pointer-events:none; padding:4px 12px; background:rgba(250,251,252,.9); border-radius:4px; white-space:nowrap; z-index:2; }
+
+.arch-viewport { position:relative; height:780px; overflow:hidden; border:1px solid var(--border); border-radius:var(--radius); background-color:#fafbfc; background-image:radial-gradient(circle,#d1d5db 1px,transparent 1px); background-size:20px 20px; }
+.arch-canvas { position:absolute; top:0; left:0; transform-origin:0 0; width:1860px; height:560px; }
+.arch-edge-svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+.arch-zoom-controls { position:absolute; top:12px; left:12px; z-index:10; display:flex; flex-direction:column; gap:4px; }
+.arch-zoom-btn { width:32px; height:32px; border:1px solid var(--border); border-radius:6px; background:#fff; cursor:pointer; font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; justify-content:center; transition:all .15s; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.arch-zoom-btn:hover { background:var(--steel-bg); border-color:#9ca3af; }
+.arch-node { position:absolute; background:#fff; border:2px solid var(--border); border-radius:10px; width:280px; cursor:grab; transition:box-shadow .2s, border-color .2s; overflow:hidden; user-select:none; touch-action:none; }
+.arch-node.dragging { cursor:grabbing; box-shadow:0 12px 32px rgba(0,0,0,.18); z-index:100; transition:none; }
+.arch-node:hover { box-shadow:0 6px 24px rgba(0,0,0,.12); }
+.arch-node.selected { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.3), 0 6px 24px rgba(0,0,0,.12); }
+.arch-node-accent { position:absolute; top:0; left:0; width:4px; height:100%; border-radius:10px 0 0 10px; }
+.arch-node-type-badge { display:inline-block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; border-radius:3px; margin-top:2px; }
+.arch-node-header { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-size:12px; font-weight:600; }
+.arch-node-header.online { background:#f0fdf4; border-bottom:1px solid #bbf7d0; }
+.arch-node-header.error { background:#fef2f2; border-bottom:1px solid #fecaca; }
+.arch-node-header .arch-node-title { display:flex; align-items:center; gap:6px; color:var(--primary); }
+.arch-node-header .arch-node-title svg { width:14px; height:14px; flex-shrink:0; }
+.arch-node-status-icon { width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.arch-node-status-icon.online { color:#16a34a; }
+.arch-node-status-icon.error { color:#dc2626; }
+.arch-node-body { padding:10px 12px; }
+.arch-node-desc { font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:6px; }
+.arch-node-items { margin-bottom:8px; }
+.arch-node-item { font-size:11px; line-height:1.6; display:flex; align-items:center; gap:4px; }
+.arch-node-item.success { color:#16a34a; }
+.arch-node-item.info { color:var(--text-muted); }
+.arch-node-item::before { content:'\00B7'; font-weight:bold; }
+.arch-node-item.success::before { content:''; }
+.arch-node-more { font-size:10px; color:var(--text-muted); cursor:pointer; padding:2px 0; }
+.arch-node-more:hover { color:var(--text); }
+.arch-node-actions-label { font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-top:6px; margin-bottom:4px; border-top:1px solid var(--border); padding-top:8px; }
+.arch-node-action { font-size:11px; color:var(--text); display:flex; align-items:center; gap:4px; padding:2px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.arch-node-action::before { content:'\25B8'; color:var(--text-muted); font-size:9px; flex-shrink:0; }
+.arch-node-actions-more { font-size:10px; color:var(--text-muted); padding:2px 0; }
+.flow-detail-panel { height:0; overflow:hidden; background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 2px 12px rgba(0,0,0,.06); transition:height .3s ease; margin-top:16px; }
+.flow-detail-panel.open { height:auto; max-height:560px; overflow-y:auto; }
+.flow-detail-header { display:flex; align-items:center; justify-content:space-between; padding:12px 24px; border-bottom:1px solid var(--border); }
+.flow-detail-header.online { background:linear-gradient(90deg,#f0fdf4,#f8fafc); }
+.flow-detail-header.error { background:linear-gradient(90deg,#fef2f2,#f8fafc); }
+.flow-detail-header-left { display:flex; align-items:center; gap:10px; }
+.flow-detail-header-left .flow-detail-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.flow-detail-header-left .flow-detail-name { font-size:15px; font-weight:700; color:var(--primary); }
+.flow-detail-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:6px; text-transform:uppercase; letter-spacing:.5px; }
+.flow-detail-badge.online { background:#dcfce7; color:#16a34a; }
+.flow-detail-badge.error { background:#fee2e2; color:#dc2626; }
+.flow-detail-header-right { display:flex; align-items:center; gap:10px; }
+.flow-detail-header-right a, .flow-detail-header-right button { font-size:12px; font-weight:600; border:1px solid var(--border); border-radius:6px; padding:5px 12px; cursor:pointer; text-decoration:none; background:#fff; color:var(--text); transition:all .15s; display:flex; align-items:center; gap:4px; }
+.flow-detail-header-right a:hover, .flow-detail-header-right button:hover { background:var(--steel-bg); }
+.flow-detail-close { background:none!important; border:none!important; font-size:18px; cursor:pointer; color:var(--text-muted); padding:4px 8px!important; }
+.flow-detail-close:hover { color:var(--text); }
+.flow-detail-body { display:flex; flex-direction:column; min-height:120px; max-height:440px; overflow-y:auto; padding:16px 24px; gap:12px; }
+.flow-detail-right { display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; }
+.flow-detail-section { margin-bottom:14px; }
+.flow-detail-section h4 { font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.flow-detail-section p { font-size:12px; color:var(--text); line-height:1.5; }
+.flow-detail-stats { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.flow-detail-stat { background:var(--steel-bg); border:1px solid var(--border); border-radius:8px; padding:4px 12px; font-size:12px; font-weight:600; }
+.flow-detail-tables { display:flex; flex-wrap:wrap; gap:6px; }
+.flow-detail-table-pill { font-size:11px; background:var(--steel-bg); border:1px solid var(--border); border-radius:6px; padding:3px 10px; color:var(--text-muted); }
+
+/* ─── Data Explorer (architecture detail panel for data nodes) ─── */
+.data-explorer { display:grid; grid-template-columns:240px 1fr; height:100%; min-height:380px; }
+.data-explorer-sidebar { border-right:1px solid var(--border); overflow-y:auto; padding:0; background:var(--steel-bg); }
+.de-sidebar-header { font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; padding:12px 16px 8px; }
+.de-table-list { list-style:none; margin:0; padding:0; }
+.de-table-list li { display:flex; justify-content:space-between; align-items:center; padding:8px 16px; cursor:pointer; font-size:13px; color:var(--text); border-left:3px solid transparent; transition:all .12s; }
+.de-table-list li:hover { background:#f1f5f9; }
+.de-table-list li.active { background:#eff6ff; border-left-color:#3b82f6; font-weight:600; color:#1d4ed8; }
+.de-table-list li .de-row-count { font-size:11px; color:var(--text-muted); font-weight:400; white-space:nowrap; }
+.data-explorer-content { overflow-y:auto; padding:16px 20px; }
+.de-card { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:14px; overflow:hidden; }
+.de-card-header { font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; padding:8px 14px; background:var(--steel-bg); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.de-card-body { padding:0; overflow-x:auto; }
+.de-card-body table { width:100%; border-collapse:collapse; font-size:12px; }
+.de-card-body table th { position:sticky; top:0; background:var(--steel-bg); padding:6px 12px; text-align:left; font-weight:600; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+.de-card-body table td { padding:5px 12px; border-bottom:1px solid #f1f5f9; color:var(--text); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.de-card-body table tr:hover td { background:#f8fafc; }
+.de-badge-type { display:inline-block; font-size:10px; background:#eff6ff; color:#3b82f6; border-radius:4px; padding:1px 6px; font-weight:600; }
+.de-badge-pk { display:inline-block; font-size:9px; background:#fef3c7; color:#d97706; border-radius:4px; padding:1px 5px; font-weight:700; margin-left:4px; }
+.de-badge-nullable { display:inline-block; font-size:9px; background:#f1f5f9; color:#9ca3af; border-radius:4px; padding:1px 5px; margin-left:4px; }
+.de-null-cell { color:#d1d5db; font-style:italic; }
+.de-loading { display:flex; align-items:center; justify-content:center; padding:40px; color:var(--text-muted); font-size:13px; gap:8px; }
+.de-empty-state { text-align:center; padding:32px; color:var(--text-muted); font-size:13px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     LAYOUT — TODO(vibe): Rebuild this to match user's preferred layout & branding.
+     This is a minimal sidebar+topbar placeholder. Replace with whatever
+     the user wants (top nav, dashboard-first, dark theme, etc.)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="sidebar">
+  <div class="logo">
+    <h1>DEMO</h1>
+    <span>Command Center</span>
+  </div>
+  <nav>
+    <!-- TODO(vibe): Add domain pages (dashboard, inventory, etc.) as the user requests -->
+    <a href="#" data-page="dashboard" class="active"><span class="icon"><i data-lucide="layout-dashboard" style="width:16px;height:16px"></i></span> Dashboard</a>
+    <a href="#" data-page="chat"><span class="icon"><i data-lucide="message-circle" style="width:16px;height:16px"></i></span> AI Chat</a>
+    <a href="#" data-page="agent" id="nav-agent"><span class="icon"><i data-lucide="bot" style="width:16px;height:16px"></i></span> Agent Workflows <span class="nav-badge" id="agent-nav-badge" style="display:none">0</span></a>
+    <a href="#" data-page="arch"><span class="icon"><i data-lucide="layers" style="width:16px;height:16px"></i></span> Architecture</a>
+  </nav>
+  <div class="sidebar-footer">Databricks App</div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <h2 id="page-title">AI Chat</h2>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="pill pill-green pill-live">System Live</span>
+    </div>
+  </div>
+  <div id="content">
+
+    <!-- ═══ Dashboard Page ═══ -->
+    <div id="page-dashboard" class="page active">
+      <!-- Greeting banner -->
+      <div id="dash-greeting" class="dash-greeting">
+        <h2 id="dash-greeting-text">Good morning</h2>
+        <p id="dash-greeting-sub">Loading operational summary...</p>
+      </div>
+      <!-- KPI strip -->
+      <div class="kpi-row" id="dash-kpis"></div>
+      <!-- Two-column layout: exceptions + recent activity -->
+      <div class="grid-2">
+        <div class="card collapsible-section" id="dash-exceptions-section">
+          <div class="cs-header" onclick="toggleSection('dash-exceptions-section')">
+            <span class="cs-chevron">&#x25BC;</span>
+            <h3>Open Alerts &amp; Exceptions</h3>
+            <span class="badge badge-open" id="dash-exc-count" style="margin-left:auto">0</span>
+          </div>
+          <div class="cs-body" id="dash-exceptions" style="max-height:600px"></div>
+        </div>
+        <div class="card collapsible-section" id="dash-activity-section">
+          <div class="cs-header" onclick="toggleSection('dash-activity-section')">
+            <span class="cs-chevron">&#x25BC;</span>
+            <h3>Recent Agent Activity</h3>
+          </div>
+          <div class="cs-body" id="dash-activity" style="max-height:600px"></div>
+        </div>
+      </div>
+      <!-- Briefing section (collapsible) -->
+      <div class="card collapsible-section" id="dash-briefing-section">
+        <div class="cs-header" onclick="toggleSection('dash-briefing-section')">
+          <span class="cs-chevron">&#x25BC;</span>
+          <h3>AI Briefing</h3>
+          <button class="btn btn-sm btn-blue" style="margin-left:auto" onclick="event.stopPropagation();loadBriefingStream()">Refresh</button>
+        </div>
+        <div class="cs-body" id="dash-briefing" style="max-height:600px;font-size:13px;line-height:1.6;color:var(--text)"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Starter Page: AI Chat ═══ -->
+    <div id="page-chat" class="page" style="display:none;height:calc(100vh - 60px);flex-direction:column;">
+      <div class="suggested-prompts" id="chat-prompts"></div>
+      <div id="chat-messages" style="flex:1;overflow-y:auto;"></div>
+      <div class="chat-toolbar" id="chat-toolbar">
+        <button class="chat-tb-btn" id="btn-stop-chat" onclick="stopChat()">&#x25A0; Stop</button>
+        <button class="chat-tb-btn" id="btn-retry-chat" onclick="retryChat()">&#x21BB; Retry</button>
+        <div style="flex:1"></div>
+        <button class="chat-tb-btn visible" id="btn-clear-chat" onclick="clearChat()">&#x2715; Clear chat</button>
+      </div>
+      <div id="chat-input-area">
+        <label class="auto-approve-toggle">
+          <input type="checkbox" id="auto-approve-mcp" checked>
+          <span class="toggle-track"></span>
+          <span>Auto-approve</span>
+        </label>
+        <input id="chat-input" placeholder="Ask the AI advisor..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn btn-primary" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+
+    <!-- ═══ Starter Page: Agent Workflows ═══ -->
+    <div id="page-agent" class="page">
+      <div class="agent-status-bar">
+        <div class="agent-pulse"></div>
+        <div><strong>AI Agent</strong> <span id="agent-last-run" style="opacity:.7">Active</span></div>
+        <div style="margin-left:auto;opacity:.7">Proactive Monitor</div>
+      </div>
+      <div class="kpi-row" id="agent-kpis"></div>
+      <div id="agent-filters" style="display:flex;gap:8px;margin:12px 0 4px;align-items:center;">
+        <span style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Filter:</span>
+        <button class="btn btn-sm agent-filter-btn active" data-wf-filter="all" onclick="filterAgentWorkflows('all')">All</button>
+        <!-- TODO(vibe): Add workflow type filter buttons here -->
+      </div>
+      <div class="wf-section" id="agent-pending"></div>
+      <div class="wf-section" id="agent-resolved"></div>
+      <div class="wf-section" id="agent-activity"></div>
+    </div>
+
+    <!-- ═══ Architecture ═══ -->
+    <div id="page-arch" class="page">
+      <div id="arch-banner"></div>
+      <div class="arch-viewport" id="arch-viewport">
+        <div class="arch-zoom-controls">
+          <button class="arch-zoom-btn" onclick="archZoomIn()" title="Zoom in">+</button>
+          <button class="arch-zoom-btn" onclick="archZoomOut()" title="Zoom out">&minus;</button>
+          <button class="arch-zoom-btn" onclick="archFitView()" title="Fit to view">&#x26F6;</button>
+        </div>
+        <div class="arch-canvas" id="arch-canvas">
+          <svg class="arch-edge-svg" id="arch-edges"></svg>
+        </div>
+      </div>
+      <div id="flow-detail-panel" class="flow-detail-panel"></div>
+    </div>
+
+    <!-- TODO(vibe): Add domain pages here (dashboard, inventory, etc.) -->
+
+  </div>
+</div>
+
+<!-- ═══ Detail Panel ═══ -->
+<div id="detail-panel">
+  <div class="dp-header"><h3 id="dp-title">Detail</h3><button class="dp-close" onclick="closeDetail()">&times;</button></div>
+  <div class="dp-body" id="dp-body"></div>
+</div>
+
+<!-- ═══ Workflow Modal ═══ -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="modal-title"></h3><button onclick="closeModal()">&times;</button></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- ═══ Flash ═══ -->
+<div id="flash"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   REUSABLE JS UTILITIES — These work with any layout / page structure
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// ─── API Helpers ──────────────────────────────────────────────────────────
+async function fetchApi(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(`API ${r.status}`);
+  return r.json();
+}
+async function postApi(path, body) {
+  const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (!r.ok) throw new Error(`API ${r.status}`);
+  return r.json();
+}
+async function patchApi(path, body) {
+  const r = await fetch(path, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (!r.ok) throw new Error(`API ${r.status}`);
+  return r.json();
+}
+
+// ─── Formatting ──────────────────────────────────────────────────────────
+function fmt(n, d=0) { return n == null ? '\u2014' : Number(n).toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function fmtUsd(n) { return n == null ? '\u2014' : '$'+Number(n).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function fmtPct(n) { return n == null ? '\u2014' : n+'%'; }
+function statusBadge(s) { return `<span class="badge badge-${(s||'').replace(/\s/g,'-')}">${s||'\u2014'}</span>`; }
+function severityBadge(s) { return `<span class="badge badge-${s}">${s}</span>`; }
+function timeAgo(iso) {
+  if (!iso) return '\u2014';
+  const d = new Date(iso), now = new Date(), diff = (now-d)/1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60)+'m ago';
+  if (diff < 86400) return Math.floor(diff/3600)+'h ago';
+  return Math.floor(diff/86400)+'d ago';
+}
+
+// ─── Session-expired handling with proper re-login (Gotcha #29) ─────────
+let _sessionExpiredShown = false;
+
+function handleSessionExpired() {
+  if (_sessionExpiredShown) return;
+  _sessionExpiredShown = true;
+
+  // Full-screen modal — forces re-login, cannot be dismissed
+  const overlay = document.createElement('div');
+  overlay.id = 'session-expired-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(17,25,34,0.85);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:40px 48px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3);">
+      <div style="width:56px;height:56px;margin:0 auto 20px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h2 style="font-size:20px;font-weight:600;color:#1e293b;margin-bottom:8px;">Session Expired</h2>
+      <p style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:24px;">
+        Your Databricks authentication has expired.<br>Please log in again to continue.
+      </p>
+      <button onclick="forceReLogin()" style="background:var(--primary,#1a2332);color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.2s;">
+        Log in again
+      </button>
+      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">
+        This happens when your session is idle for an extended period.
+      </p>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function forceReLogin() {
+  // Navigate to the backend logout endpoint which expires ALL cookies
+  // (including HttpOnly proxy session cookies that JS cannot touch),
+  // then redirects to / — the proxy sees no session and starts a fresh OAuth flow.
+  window.location.href = '/api/force-logout';
+}
+
+// Proactive session check — runs every 5 minutes
+let _sessionCheckTimer = null;
+async function checkSessionValidity() {
+  try {
+    const resp = await fetch('/api/check-session');
+    const data = await resp.json();
+    if (!data.valid) {
+      handleSessionExpired();
+      if (_sessionCheckTimer) clearInterval(_sessionCheckTimer);
+    } else if (data.expires_in_seconds < 300) {
+      // Token expires in < 5 min — warn with a non-blocking banner
+      showSessionWarning(data.expires_in_seconds);
+    }
+  } catch (e) {
+    console.warn('Session check failed:', e);
+  }
+}
+
+function showSessionWarning(secondsLeft) {
+  if (document.getElementById('session-warning-banner')) return;
+  const mins = Math.max(1, Math.round(secondsLeft / 60));
+  const banner = document.createElement('div');
+  banner.id = 'session-warning-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99998;background:#fef3c7;color:#92400e;text-align:center;padding:10px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:12px;';
+  banner.innerHTML = `<span>Your session expires in ~${mins} minute${mins > 1 ? 's' : ''}. Save your work and </span><button onclick="forceReLogin()" style="background:#92400e;color:#fff;border:none;padding:4px 14px;border-radius:4px;font-size:12px;cursor:pointer;">Re-login now</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#92400e;cursor:pointer;font-size:16px;margin-left:8px;">&times;</button>`;
+  document.body.appendChild(banner);
+}
+
+_sessionCheckTimer = setInterval(checkSessionValidity, 5 * 60 * 1000);
+setTimeout(checkSessionValidity, 10000);
+
+// ─── Text Utilities ──────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatMd(s) {
+  return s
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+function renderThinkingBlock(el, parts) {
+  const full = parts.join('');
+  const steps = full.split(/(?<=[:.\!\?])\s*(?=(?:Let me|Now I|First[,: ]|Next[,: ]|I'll |I will |I can see|I need to|I should|Finally[,: ]|Then[,: ]|After ))/i).map(s => s.trim()).filter(s => s.length > 5);
+  const count = steps.length || 1;
+  const body = steps.length > 1
+    ? steps.map(s => `<div style="padding:2px 0;border-bottom:1px solid var(--border,#e5e7eb);">${escHtml(s)}</div>`).join('')
+    : escHtml(full);
+  el.innerHTML = `<div class="thinking-block"><div class="thinking-toggle" onclick="this.parentElement.classList.toggle('expanded')"><span class="thinking-chevron">\u25B8</span> Agent reasoning (${count} step${count > 1 ? 's' : ''})</div><div class="thinking-body">${body}</div></div>`;
+}
+
+// ─── Flash Messages ──────────────────────────────────────────────────────
+function showFlash(msg, isError=false) {
+  const el = document.getElementById('flash');
+  const div = document.createElement('div');
+  div.className = 'flash-msg' + (isError?' error':'');
+  div.textContent = msg;
+  el.appendChild(div);
+  setTimeout(()=>div.remove(), 3000);
+}
+
+// ─── Navigation ──────────────────────────────────────────────────────────
+// TODO(vibe): Add domain pages to PAGES and PAGE_TITLES when you create them
+const PAGES = ['dashboard','chat','agent','arch'];
+const PAGE_TITLES = {
+  dashboard: 'Dashboard',
+  chat:  'AI Chat',
+  agent: 'Agent Workflows',
+  arch:  'Architecture',
+};
+
+let currentPage = 'dashboard';
+function navigate(page) {
+  currentPage = page;
+  PAGES.forEach(p => {
+    const pel = document.getElementById('page-'+p);
+    if (!pel) return;
+    pel.classList.remove('active', 'fade-in');
+    pel.style.display = 'none';
+  });
+  const el = document.getElementById('page-'+page);
+  if (!el) return;
+  el.classList.add('active');
+  el.style.display = page === 'chat' ? 'flex' : 'block';
+  requestAnimationFrame(() => el.classList.add('fade-in'));
+  document.getElementById('page-title').textContent = PAGE_TITLES[page]||page;
+  document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
+  closeDetail();
+  // TODO(vibe): Add page loader calls here when you create domain pages
+  if (page === 'dashboard') loadDashboard();
+  else if (page === 'chat') loadChat();
+  else if (page === 'agent') loadAgentPage();
+  else if (page === 'arch') loadArchitecture();
+}
+
+document.querySelectorAll('#sidebar nav a').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); navigate(a.dataset.page); });
+});
+
+// (Session expiry now shows a re-login modal instead of reloading)
+
+// ─── Detail Panel ────────────────────────────────────────────────────────
+function openDetail(title, html) {
+  document.getElementById('dp-title').textContent = title;
+  document.getElementById('dp-body').innerHTML = html;
+  document.getElementById('detail-panel').classList.add('open');
+}
+function closeDetail() { document.getElementById('detail-panel').classList.remove('open'); }
+
+// ─── Modal ───────────────────────────────────────────────────────────────
+function openModal(title, bodyHtml, footerHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-footer').innerHTML = footerHtml || '';
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+// ─── Skeleton Loaders ────────────────────────────────────────────────────
+function showSkeleton(id, rows=4) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '<div class="skeleton">' + Array.from({length:rows}, ()=>'<div class="sk-row"></div>').join('') + '</div>';
+}
+function showTableSkeleton(id, cols=5, rows=6) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const hdr = '<tr>' + Array.from({length:cols}, ()=>'<th><div class="sk-cell" style="width:80%;height:10px"></div></th>').join('') + '</tr>';
+  const body = Array.from({length:rows}, ()=>'<tr>' +
+    Array.from({length:cols}, ()=>'<td><div class="sk-cell" style="width:'+Math.round(50+Math.random()*40)+'%"></div></td>').join('') +
+  '</tr>').join('');
+  el.innerHTML = `<table class="tbl-skeleton"><thead>${hdr}</thead><tbody>${body}</tbody></table>`;
+}
+
+// ─── KPI Entrance Animation ──────────────────────────────────────────────
+function animateKPIs(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const cards = container.querySelectorAll('.kpi-card');
+  cards.forEach((card, i) => {
+    card.classList.add('kpi-animate');
+    setTimeout(() => card.classList.add('kpi-visible'), 60 + i * 80);
+  });
+}
+
+// ─── Agent Nav Badge ─────────────────────────────────────────────────────
+function updateAgentBadge(count) {
+  const badge = document.getElementById('agent-nav-badge');
+  if (badge) {
+    if (count > 0) { badge.textContent = count; badge.style.display = ''; }
+    else { badge.style.display = 'none'; }
+  }
+}
+
+// ─── Agent Name Formatter ────────────────────────────────────────────────
+// TODO(vibe): Add your MAS agent name mappings here
+function formatAgentName(name) {
+  const shortName = name.includes('__') ? name.split('__').pop() : name;
+  const map = {};
+  return map[shortName] || map[name] || shortName.replace(/[-_]/g, ' ');
+}
+
+// ─── Navigate to Chat with a Prompt ──────────────────────────────────────
+function sendChatPrompt(text) {
+  document.getElementById('chat-input').value = text;
+  sendChat();
+}
+function askAI(prompt) {
+  navigate('chat');
+  setTimeout(() => { sendChatPrompt(prompt); }, 150);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STARTER: SSE Chat — Full streaming with action cards + follow-ups
+   Do NOT modify this section unless you need to change the SSE protocol.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let _chatAbortController = null;
+let _lastUserMessage = '';
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  _lastUserMessage = msg;
+
+  const autoApprove = document.getElementById('auto-approve-mcp')?.checked ?? true;
+  // Persist auto-approve preference
+  try { localStorage.setItem('auto_approve_mcp', autoApprove ? '1' : '0'); } catch(_) {}
+
+  const msgs = document.getElementById('chat-messages');
+  msgs.innerHTML += `<div class="chat-msg user">${escHtml(msg)}</div>`;
+
+  const container = document.createElement('div');
+  container.className = 'chat-msg assistant';
+  container.innerHTML = `<div class="typing-indicator" id="chat-typing"><span></span><span></span><span></span></div><div class="chat-steps" id="chat-steps" style="display:none"></div><div class="chat-timer" id="chat-timer"><span class="timer-dot"></span><span class="timer-value">0s</span></div><div id="chat-thinking"></div><div id="chat-answer"></div>`;
+  msgs.appendChild(container);
+
+  const typingEl = container.querySelector('#chat-typing');
+  const stepsEl = container.querySelector('#chat-steps');
+  const timerEl = container.querySelector('#chat-timer');
+  const timerValEl = timerEl?.querySelector('.timer-value');
+  const thinkingEl = container.querySelector('#chat-thinking');
+  const answerEl = container.querySelector('#chat-answer');
+  let _typingRemoved = false;
+  function removeTyping() {
+    if (!_typingRemoved && typingEl) { typingEl.remove(); stepsEl.style.display = ''; _typingRemoved = true; }
+  }
+
+  // Timer
+  const _timerStart = Date.now();
+  const _timerInterval = setInterval(() => {
+    const elapsed = Math.round((Date.now() - _timerStart) / 1000);
+    if (timerValEl) {
+      if (elapsed < 60) timerValEl.textContent = `${elapsed}s`;
+      else timerValEl.textContent = `${Math.floor(elapsed/60)}m ${elapsed%60}s`;
+    }
+  }, 1000);
+  function stopTimer() {
+    clearInterval(_timerInterval);
+    if (timerEl) timerEl.classList.add('stopped');
+  }
+
+  // Toolbar visibility
+  const btnStop = document.getElementById('btn-stop-chat');
+  const btnRetry = document.getElementById('btn-retry-chat');
+  if (btnStop) { btnStop.classList.add('visible', 'stop'); }
+  if (btnRetry) { btnRetry.classList.remove('visible'); }
+
+  msgs.scrollTop = msgs.scrollHeight;
+
+  _chatAbortController = new AbortController();
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg, auto_approve_mcp: autoApprove}),
+      signal: _chatAbortController.signal,
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answerText = '';
+    let thinkingParts = [];
+    let lastAgentStep = null;
+    let hasSubAgents = false;
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6);
+        if (raw === '[DONE]') continue;
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.type === 'tool_call') {
+          hasSubAgents = true;
+          removeTyping();
+          const label = formatAgentName(evt.agent);
+          // Smart step reuse: update existing step if it was a sub_result from same agent
+          const lastStep = stepsEl.querySelector('.chat-step:last-of-type:not(.collapsed-counter)');
+          const lastLabel = lastStep ? lastStep.dataset.stepLabel : '';
+          if (lastLabel === `Received data from ${label}`) {
+            lastStep.dataset.stepLabel = `Querying ${label}...`;
+            lastStep.querySelector('.step-label').textContent = `Querying ${label}...`;
+            lastStep.querySelector('.step-icon').className = 'step-icon agent';
+            lastStep.classList.add('active');
+          } else {
+            deactivateSteps(stepsEl);
+            addStep(stepsEl, 'agent', `Querying ${label}...`, true);
+          }
+          _collapseSteps(stepsEl);
+          lastAgentStep = evt.agent;
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'agent_switch') {
+          deactivateSteps(stepsEl);
+        }
+        else if (evt.type === 'sub_result') {
+          removeTyping();
+          deactivateSteps(stepsEl);
+          const label = lastAgentStep ? formatAgentName(lastAgentStep) : 'sub-agent';
+          const stepEl = addStep(stepsEl, 'data', `Received data from ${label}`, false);
+          // Step preview: show data snippet
+          if (stepEl && evt.text && !stepEl.querySelector('.step-preview')) {
+            const preview = extractDataPreview(evt.text, label);
+            if (preview) {
+              const previewEl = document.createElement('div');
+              previewEl.className = 'step-preview';
+              previewEl.innerHTML = preview;
+              stepEl.appendChild(previewEl);
+            }
+          }
+          // Show sub-agent reasoning in thinking block
+          if (evt.text && evt.text.length > 10) {
+            thinkingParts.push(evt.text);
+            renderThinkingBlock(thinkingEl, thinkingParts);
+          }
+          _collapseSteps(stepsEl);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'thinking') {
+          removeTyping();
+          thinkingParts.push(evt.text);
+          renderThinkingBlock(thinkingEl, thinkingParts);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'delta') {
+          removeTyping();
+          if (!answerText && hasSubAgents) {
+            deactivateSteps(stepsEl);
+            addStep(stepsEl, 'done', 'Composing answer...', true);
+          }
+          answerText += evt.text;
+          answerEl.innerHTML = formatMd(answerText);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'mcp_approval') {
+          removeTyping();
+          answerEl.insertAdjacentHTML('beforeend', renderMcpApproval(evt.tools || []));
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'action_card') {
+          answerEl.insertAdjacentHTML('beforeend', renderActionCard(evt));
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'suggested_actions') {
+          answerEl.insertAdjacentHTML('beforeend', renderFollowups(evt.actions || []));
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        else if (evt.type === 'session_expired') {
+          stopTimer();
+          handleSessionExpired(); return;
+        }
+        else if (evt.type === 'error') {
+          answerEl.innerHTML += `<div style="color:var(--red);margin-top:6px">Error: ${escHtml(evt.text)}</div>`;
+        }
+      }
+    }
+
+    deactivateSteps(stepsEl);
+    if (!answerText && thinkingParts.length) {
+      answerText = thinkingParts.join('');
+      thinkingEl.innerHTML = '';
+      answerEl.innerHTML = formatMd(answerText);
+    }
+    if (!answerText) answerEl.innerHTML = '<span style="color:var(--text-muted)">No response</span>';
+
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      answerEl.innerHTML += '<div style="color:var(--text-muted);margin-top:6px;font-size:12px">Chat stopped by user.</div>';
+    } else {
+      // Timeout recovery: poll /api/chat/history for the answer
+      answerEl.innerHTML += `<div style="color:var(--text-muted);margin-top:6px;font-size:12px">Connection interrupted — recovering...</div>`;
+      let recovered = false;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const hr = await fetch('/api/chat/history');
+          if (!hr.ok) continue;
+          const hist = await hr.json();
+          const hm = hist.messages || [];
+          if (hm.length && hm[hm.length - 1].role === 'assistant') {
+            deactivateSteps(stepsEl);
+            answerEl.innerHTML = formatMd(hm[hm.length - 1].content);
+            recovered = true;
+            break;
+          }
+        } catch(_) { /* keep polling */ }
+      }
+      if (!recovered) {
+        answerEl.innerHTML += `<div style="color:var(--red);margin-top:6px">Connection error — try again<br><small style="opacity:.6">${escHtml(String(e))}</small></div>`;
+      }
+    }
+  }
+
+  // Finalize
+  stopTimer();
+  _chatAbortController = null;
+  if (btnStop) { btnStop.classList.remove('visible', 'stop'); }
+  if (btnRetry && _lastUserMessage) { btnRetry.classList.add('visible'); }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ─── Stop / Retry / Clear Chat ──────────────────────────────────────────
+function stopChat() {
+  if (_chatAbortController) {
+    _chatAbortController.abort();
+    _chatAbortController = null;
+  }
+}
+
+function retryChat() {
+  if (_lastUserMessage) {
+    document.getElementById('chat-input').value = _lastUserMessage;
+    sendChat();
+  }
+}
+
+async function clearChat() {
+  document.getElementById('chat-messages').innerHTML = '';
+  _lastUserMessage = '';
+  try { await fetch('/api/chat/clear', {method:'POST'}); } catch(_) {}
+  loadChat();
+}
+
+// ─── Action Card Renderer ────────────────────────────────────────────────
+// TODO(vibe): Customize renderActionCard() for your domain's card_types and detail fields
+function renderActionCard(evt) {
+  const id = evt.entity_id || 0;
+  const d = evt.details || {};
+  const badgeClass = d.status === 'draft' ? 'badge-pending_approval' : d.status === 'open' ? 'badge-open' : 'badge-in_progress';
+
+  let detailsHtml = Object.entries(d).filter(([k]) => k !== 'status').map(([k, v]) =>
+    `<div><strong>${escHtml(k)}:</strong> ${escHtml(v)}</div>`
+  ).join('');
+
+  const btnHtml = (evt.actions || []).map(a => {
+    if (a === 'approve') return `<button class="ac-btn approve" onclick="handleActionCard(this,'${evt.card_type}',${id},'approve')">Approve</button>`;
+    if (a === 'dismiss') return `<button class="ac-btn dismiss" onclick="handleActionCard(this,'${evt.card_type}',${id},'dismiss')">Dismiss</button>`;
+    if (a === 'escalate') return `<button class="ac-btn escalate" onclick="handleActionCard(this,'${evt.card_type}',${id},'escalate')">Escalate</button>`;
+    return '';
+  }).join('');
+
+  return `<div class="chat-action-card" data-card-id="${evt.card_type}-${id}">
+    <div class="ac-header">
+      <span class="ac-title">${escHtml(evt.title || '')}</span>
+      <span class="ac-badge ${badgeClass}">${escHtml(d.status || '')}</span>
+    </div>
+    <div class="ac-details">${detailsHtml}</div>
+    <div class="ac-buttons">${btnHtml}</div>
+  </div>`;
+}
+
+function renderFollowups(actions) {
+  if (!actions.length) return '';
+  const btns = actions.map(a =>
+    `<button onclick="sendChatPrompt('${escHtml(a.prompt)}')">${escHtml(a.label)}</button>`
+  ).join('');
+  return `<div class="chat-followups">${btns}</div>`;
+}
+
+// TODO(vibe): Update handleActionCard URLs to match your backend API routes
+async function handleActionCard(btn, cardType, entityId, action) {
+  const card = btn.closest('.chat-action-card');
+  card.querySelectorAll('.ac-btn').forEach(b => b.disabled = true);
+  btn.textContent = 'Processing...';
+  try {
+    const url = `/api/${cardType}s/${entityId}`;
+    const body = {status: action === 'approve' ? 'approved' : action === 'escalate' ? 'escalated' : 'dismissed'};
+    await fetch(url, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    card.classList.add('resolved');
+    const label = action === 'approve' ? 'Approved' : action === 'escalate' ? 'Escalated' : 'Dismissed';
+    const cls = action === 'dismiss' ? 'dismissed' : 'approved';
+    card.insertAdjacentHTML('beforeend', `<div class="ac-result ${cls}">\u2714 ${label} successfully</div>`);
+  } catch(e) {
+    btn.textContent = 'Failed';
+    btn.style.background = 'var(--red)';
+    btn.style.color = '#fff';
+  }
+}
+
+function addStep(container, type, label, active) {
+  const el = document.createElement('div');
+  el.className = 'chat-step' + (active ? ' active' : '');
+  el.dataset.stepType = type;
+  el.dataset.stepLabel = label;
+  const icons = {thinking: '\u2726', agent: '\u25B6', data: '\u2714', done: '\u2714', approval: '\uD83D\uDEE1\uFE0F'};
+  el.innerHTML = `<span class="step-icon ${type}">${icons[type]||'\u2726'}</span><span class="step-label">${escHtml(label)}</span>`;
+  container.appendChild(el);
+  return el;
+}
+
+function deactivateSteps(container) {
+  container.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+}
+
+// ─── Step Collapsing ────────────────────────────────────────────────────
+const MAX_VISIBLE_STEPS = 3;
+
+function _collapseSteps(container) {
+  const steps = Array.from(container.querySelectorAll('.chat-step:not(.collapsed-counter)'));
+  // Remove existing counter
+  const existing = container.querySelector('.collapsed-counter');
+  if (existing) existing.remove();
+  // Show all steps first
+  steps.forEach(s => s.classList.remove('step-hidden'));
+  if (steps.length <= MAX_VISIBLE_STEPS) return;
+  const hideCount = steps.length - MAX_VISIBLE_STEPS;
+  for (let i = 0; i < hideCount; i++) {
+    steps[i].classList.add('step-hidden');
+  }
+  // Insert collapsed counter before first visible step
+  const counter = document.createElement('div');
+  counter.className = 'chat-step collapsed-counter';
+  counter.innerHTML = `<span class="step-icon data" style="font-size:8px">\u2022\u2022\u2022</span><span class="step-label">${hideCount} step${hideCount > 1 ? 's' : ''} completed</span>`;
+  counter.onclick = function() {
+    container.querySelectorAll('.step-hidden').forEach(s => s.classList.remove('step-hidden'));
+    this.remove();
+  };
+  container.insertBefore(counter, steps[hideCount]);
+}
+
+// ─── Data Preview Extraction ────────────────────────────────────────────
+function extractDataPreview(text, agentLabel) {
+  if (!text || text.length < 10) return '';
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0];
+      const keys = Object.keys(first).slice(0, 4);
+      const items = keys.map(k => `<strong>${k}:</strong> ${String(first[k]).slice(0, 40)}`);
+      if (parsed.length > 1) items.push(`<em>+${parsed.length - 1} more rows</em>`);
+      return items.join(' &middot; ');
+    }
+    if (typeof parsed === 'object') {
+      const keys = Object.keys(parsed).slice(0, 4);
+      return keys.map(k => `<strong>${k}:</strong> ${String(parsed[k]).slice(0, 40)}`).join(' &middot; ');
+    }
+  } catch(_) {}
+  // Plain text — show first 120 chars
+  const clean = text.replace(/\n/g, ' ').trim();
+  if (clean.length > 15) return escHtml(clean.slice(0, 120)) + (clean.length > 120 ? '...' : '');
+  return '';
+}
+
+// ─── MCP Approval Card Renderer ─────────────────────────────────────────
+function renderMcpApproval(tools) {
+  const toolsHtml = tools.map(t => {
+    const argsHtml = t.arguments ? Object.entries(t.arguments).map(([k, v]) =>
+      `<span class="mcp-arg"><strong>${escHtml(k)}:</strong> ${escHtml(String(v).slice(0, 80))}</span>`
+    ).join('') : '';
+    return `<div class="mcp-tool-item">
+      <span class="mcp-tool-icon">\u{1F527}</span>
+      <span class="mcp-tool-name">${escHtml(t.name)}</span>
+      <span class="mcp-tool-server">${escHtml(t.server || '')}</span>
+      ${argsHtml ? `<div class="mcp-args">${argsHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="mcp-approval-card">
+    <div class="mcp-approval-header">
+      <span class="mcp-approval-icon">\uD83D\uDEE1\uFE0F</span>
+      <span>Agent requests database access</span>
+    </div>
+    <div class="mcp-approval-tools">${toolsHtml}</div>
+    <div class="mcp-approval-buttons">
+      <button class="mcp-btn approve" onclick="approveMcp(this, true)">Approve</button>
+      <button class="mcp-btn deny" onclick="approveMcp(this, false)">Deny</button>
+    </div>
+  </div>`;
+}
+
+async function approveMcp(btn, approve) {
+  const card = btn.closest('.mcp-approval-card');
+  card.querySelectorAll('.mcp-btn').forEach(b => b.disabled = true);
+  btn.textContent = approve ? 'Approved' : 'Denied';
+  btn.className = `mcp-btn ${approve ? 'approved' : 'denied'}`;
+
+  // Send approval to backend and continue streaming
+  const msgs = document.getElementById('chat-messages');
+  const container = document.createElement('div');
+  container.className = 'chat-msg assistant';
+  container.innerHTML = `<div class="chat-steps" id="chat-steps"><div class="chat-step active"><span class="step-icon agent">\u25B6</span><span class="step-label">${approve ? 'Executing approved tool...' : 'Tool denied by user'}</span></div></div><div id="chat-answer"></div>`;
+  msgs.appendChild(container);
+  const stepsEl = container.querySelector('#chat-steps');
+  const answerEl = container.querySelector('#chat-answer');
+  msgs.scrollTop = msgs.scrollHeight;
+
+  if (!approve) {
+    answerEl.innerHTML = '<span style="color:var(--text-muted)">Tool execution denied.</span>';
+    deactivateSteps(stepsEl);
+    return;
+  }
+
+  try {
+    const autoApprove = document.getElementById('auto-approve-mcp')?.checked ?? true;
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({approve_mcp: approve, auto_approve_mcp: autoApprove}),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answerText = '';
+    let lastAgentStep = null;
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6);
+        if (raw === '[DONE]') continue;
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.type === 'tool_call') {
+          deactivateSteps(stepsEl);
+          addStep(stepsEl, 'agent', `Querying ${formatAgentName(evt.agent)}...`, true);
+          lastAgentStep = evt.agent;
+        } else if (evt.type === 'sub_result') {
+          deactivateSteps(stepsEl);
+          const label = lastAgentStep ? formatAgentName(lastAgentStep) : 'sub-agent';
+          addStep(stepsEl, 'data', `Received data from ${label}`, false);
+        } else if (evt.type === 'delta') {
+          answerText += evt.text;
+          answerEl.innerHTML = formatMd(answerText);
+        } else if (evt.type === 'mcp_approval') {
+          answerEl.insertAdjacentHTML('beforeend', renderMcpApproval(evt.tools || []));
+        } else if (evt.type === 'action_card') {
+          answerEl.insertAdjacentHTML('beforeend', renderActionCard(evt));
+        } else if (evt.type === 'suggested_actions') {
+          answerEl.insertAdjacentHTML('beforeend', renderFollowups(evt.actions || []));
+        } else if (evt.type === 'error') {
+          answerEl.innerHTML += `<div style="color:var(--red);margin-top:6px">Error: ${escHtml(evt.text)}</div>`;
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    }
+    deactivateSteps(stepsEl);
+    if (!answerText) answerEl.innerHTML = '<span style="color:var(--text-muted)">Tool executed — no additional response.</span>';
+  } catch(e) {
+    answerEl.innerHTML += `<div style="color:var(--red);margin-top:6px">Error: ${escHtml(String(e))}</div>`;
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STARTER: AI Chat — Load + Welcome
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// TODO(vibe): Customize suggested prompts for your domain
+const SUGGESTED = [
+  "What needs my attention right now?",
+  "Show me the key metrics and trends.",
+  "What anomalies should I be aware of?",
+  "Generate a summary report.",
+];
+
+function loadChat() {
+  const el = document.getElementById('chat-prompts');
+  el.innerHTML = SUGGESTED.map(s => `<button onclick="sendChatPrompt(this.textContent)">${s}</button>`).join('');
+
+  // Restore auto-approve preference from localStorage
+  try {
+    const saved = localStorage.getItem('auto_approve_mcp');
+    if (saved !== null) {
+      const cb = document.getElementById('auto-approve-mcp');
+      if (cb) cb.checked = saved === '1';
+    }
+  } catch(_) {}
+
+  if (!document.getElementById('chat-messages').children.length) {
+    // TODO(vibe): Customize the welcome card for your domain
+    document.getElementById('chat-messages').innerHTML = `
+      <div class="chat-welcome">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+          <div class="chat-welcome-avatar">D</div>
+          <div>
+            <div style="font-size:15px;font-weight:700">AI Advisor</div>
+            <div style="font-size:11px;opacity:.7;margin-top:2px">
+              <span class="pill" style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.9);font-size:9px">Multi-Agent</span>
+              Powered by Databricks
+            </div>
+          </div>
+        </div>
+        <div style="font-size:13px;line-height:1.6;opacity:.9">
+          I can analyze your data, answer questions, and take actions on your behalf.
+          Ask me anything.
+        </div>
+      </div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STARTER: Agent Workflows — KPIs, cards, flow diagram, modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let _agentWorkflows = [];
+let _agentFilter = 'all';
+
+function filterAgentWorkflows(type) {
+  _agentFilter = type;
+  document.querySelectorAll('.agent-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.wfFilter === type));
+  renderAgentSections(_agentWorkflows, type);
+}
+
+function renderAgentSections(workflows, filter) {
+  const filtered = filter === 'all' ? workflows : workflows.filter(w => w.workflow_type === filter);
+  const pending = filtered.filter(w => w.status === 'pending_approval' || w.status === 'in_progress');
+  const resolved = filtered.filter(w => w.status === 'approved' || w.status === 'dismissed' || w.status === 'failed');
+
+  document.getElementById('agent-pending').innerHTML = `
+    <div class="wf-section-header">Needs Your Approval <span class="count">${pending.length}</span></div>
+    ${pending.length ? pending.map(wf => renderWfCard(wf, true)).join('') : '<div class="loading" style="padding:20px">No pending workflows -- all clear.</div>'}
+  `;
+  document.getElementById('agent-resolved').innerHTML = `
+    <div class="wf-section-header">Completed <span class="count">${resolved.length}</span></div>
+    ${resolved.length ? resolved.map(wf => renderWfCard(wf, false)).join('') : '<div class="loading" style="padding:20px">No completed workflows yet.</div>'}
+  `;
+}
+
+function renderWfCard(wf, showActions) {
+  // TODO(vibe): Add your workflow type labels here
+  const TYPE_LABELS = {};
+  const typeBadge = `<span class="badge badge-${wf.workflow_type}">${TYPE_LABELS[wf.workflow_type]||wf.workflow_type}</span>`;
+  const actions = showActions && wf.status === 'pending_approval' ? `
+    <div class="wf-actions">
+      <button class="btn btn-sm btn-green" onclick="event.stopPropagation();approveWorkflow(${wf.workflow_id})">Approve</button>
+      <button class="btn btn-sm btn-steel" onclick="event.stopPropagation();dismissWorkflow(${wf.workflow_id})">Dismiss</button>
+    </div>` : '';
+  return `
+    <div class="wf-card ${wf.severity}" onclick="openWorkflowModal(${wf.workflow_id})">
+      <div class="wf-card-top">
+        <span class="wf-headline">${escHtml(wf.headline || wf.summary?.substring(0,80) || 'Workflow')}</span>
+        ${severityBadge(wf.severity)}
+        ${typeBadge}
+        <span class="badge badge-${wf.status}">${(wf.status||'').replace(/_/g,' ')}</span>
+      </div>
+      <div class="wf-meta">${wf.entity_type||''} ${wf.entity_id||''} &middot; ${wf.trigger_source||''} &middot; ${timeAgo(wf.created_at)}</div>
+      ${actions}
+    </div>`;
+}
+
+async function approveWorkflow(id) {
+  try {
+    await patchApi('/api/workflows/' + id, {status: 'approved'});
+    showFlash('Workflow approved');
+    closeModal();
+    const agentPage = document.getElementById('page-agent');
+    if (agentPage && agentPage.classList.contains('active')) loadAgentPage();
+  } catch(e) { showFlash('Failed to approve workflow', true); }
+}
+
+async function dismissWorkflow(id) {
+  try {
+    await patchApi('/api/workflows/' + id, {status: 'dismissed'});
+    showFlash('Workflow dismissed');
+    closeModal();
+    const agentPage = document.getElementById('page-agent');
+    if (agentPage && agentPage.classList.contains('active')) loadAgentPage();
+  } catch(e) { showFlash('Failed to dismiss workflow', true); }
+}
+
+// ─── Agent Flow Diagram ──────────────────────────────────────────────────
+// TODO(vibe): Define your domain-specific agents and workflow-to-agent mapping
+const DOMAIN_AGENTS = [
+  {key: 'data_query',     label: 'Data Query',     subtitle: 'Genie Space',  detail: 'Queries structured data via natural language.'},
+  {key: 'knowledge_base', label: 'Knowledge Base',  subtitle: 'Documents',   detail: 'Retrieves domain knowledge from the Knowledge Assistant.'},
+  {key: 'database_writer',label: 'Database',        subtitle: 'Write ops',   detail: 'Creates and updates operational records in Lakebase.'},
+];
+
+const WORKFLOW_AGENTS = {
+  // 'my_workflow_type': ['data_query', 'knowledge_base', 'database_writer'],
+};
+
+function buildDomainAgentFlow(wf) {
+  const activeKeys = WORKFLOW_AGENTS[wf.workflow_type] || ['data_query', 'database_writer'];
+  return {
+    trigger: {label: 'Proactive Monitor', subtitle: wf.trigger_source || 'Scheduled scan'},
+    supervisor: {label: 'MAS Supervisor', subtitle: 'Multi-Agent System'},
+    agents: DOMAIN_AGENTS.map(a => ({label: a.label, subtitle: a.subtitle, detail: a.detail, active: activeKeys.includes(a.key)})),
+    outcome: {label: (wf.workflow_type || 'workflow').replace(/_/g, ' '), subtitle: wf.entity_type ? `${wf.entity_type} ${wf.entity_id||''}` : 'Action taken'},
+  };
+}
+
+function renderAgentFlowDiagram(flow) {
+  const node = (cls, label, sub, idx, detail) => {
+    const tooltip = detail ? `<div class="af-tooltip"><strong>${escHtml(label)}</strong><br>${escHtml(detail)}</div>` : '';
+    return `<div class="af-node ${cls}" data-af-idx="${idx}">${tooltip}<span class="af-label">${escHtml(label)}</span><span class="af-sub">${escHtml(sub)}</span></div>`;
+  };
+  const agents = [...flow.agents].sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0));
+  let idx = 0;
+  return `<div class="af-wrapper">
+    <label>Agent Orchestration</label>
+    <div class="af-diagram" id="af-diagram">
+      <div class="af-row">${node('af-trigger', flow.trigger.label, flow.trigger.subtitle, idx++)}</div>
+      <div class="af-gap" data-af-gap="trigger-sup"></div>
+      <div class="af-row">${node('af-supervisor', flow.supervisor.label, flow.supervisor.subtitle, idx++)}</div>
+      <div class="af-gap" data-af-gap="sup-agents"></div>
+      <div class="af-row-agents">${agents.map(a => node(a.active ? 'af-agent-active' : 'af-agent-inactive', a.label, a.subtitle, idx++, a.detail || '')).join('')}</div>
+      <div class="af-gap" data-af-gap="agents-outcome"></div>
+      <div class="af-row">${node('af-outcome', flow.outcome.label, flow.outcome.subtitle, idx++)}</div>
+      <svg class="af-svg" id="af-svg"></svg>
+    </div>
+  </div>`;
+}
+
+function drawFlowConnectors() {
+  const diagram = document.getElementById('af-diagram');
+  const svg = document.getElementById('af-svg');
+  if (!diagram || !svg) return;
+  const rect = diagram.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  svg.innerHTML = '';
+  const nodes = diagram.querySelectorAll('.af-node');
+  if (nodes.length < 3) return;
+  const pos = el => { const r = el.getBoundingClientRect(); return { cx: r.left - rect.left + r.width / 2, top: r.top - rect.top, bottom: r.top - rect.top + r.height }; };
+  const trigger = nodes[0], sup = nodes[1], outcome = nodes[nodes.length - 1];
+  const agentNodes = Array.from(nodes).slice(2, -1);
+  const tPos = pos(trigger), sPos = pos(sup), oPos = pos(outcome);
+  svg.innerHTML += `<line x1="${tPos.cx}" y1="${tPos.bottom}" x2="${sPos.cx}" y2="${sPos.top}" stroke="var(--accent)" stroke-width="1.5"/>`;
+  agentNodes.forEach(an => {
+    const aPos = pos(an);
+    const isActive = an.classList.contains('af-agent-active');
+    const color = isActive ? 'var(--green)' : 'var(--steel-light)';
+    const dash = isActive ? '' : 'stroke-dasharray="4 3"';
+    const opacity = isActive ? '1' : '0.4';
+    const midY = (sPos.bottom + aPos.top) / 2;
+    svg.innerHTML += `<path d="M${sPos.cx},${sPos.bottom} C${sPos.cx},${midY} ${aPos.cx},${midY} ${aPos.cx},${aPos.top}" fill="none" stroke="${color}" stroke-width="1.5" ${dash} opacity="${opacity}"/>`;
+  });
+  if (agentNodes.length) {
+    const midX = rect.width / 2;
+    const agentBottom = Math.max(...agentNodes.map(n => pos(n).bottom));
+    svg.innerHTML += `<line x1="${midX}" y1="${agentBottom}" x2="${oPos.cx}" y2="${oPos.top}" stroke="var(--green)" stroke-width="1.5"/>`;
+  }
+}
+
+function triggerFlowAnimation() {
+  const nodes = document.querySelectorAll('#af-diagram [data-af-idx]');
+  const sorted = Array.from(nodes).sort((a, b) => +a.dataset.afIdx - +b.dataset.afIdx);
+  sorted.forEach((el, i) => {
+    setTimeout(() => {
+      el.classList.add('visible');
+      if (i === 1 || i === sorted.length - 1) setTimeout(drawFlowConnectors, 60);
+    }, 80 + i * 200);
+  });
+}
+
+// ─── Inline AI Analysis (in modal) ───────────────────────────────────────
+let _aiAbort = null;
+async function askAIInline(btn, prompt) {
+  if (_aiAbort) { _aiAbort.abort(); _aiAbort = null; }
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  const panel = document.getElementById('ai-panel');
+  const labelEl = document.getElementById('ai-panel-label');
+  const stepsEl = document.getElementById('ai-panel-steps');
+  const answerEl = document.getElementById('ai-panel-answer');
+  panel.style.display = '';
+  labelEl.innerHTML = '<span>AI Analysis</span><span class="ai-panel-spinner"></span>';
+  stepsEl.innerHTML = '';
+  answerEl.innerHTML = '';
+  _aiAbort = new AbortController();
+  const signal = _aiAbort.signal;
+  const timer = setTimeout(() => _aiAbort.abort(), 300000);
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: prompt}), signal,
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', answerText = '', shownAgents = new Set();
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6);
+        if (raw === '[DONE]') continue;
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+        if (evt.type === 'tool_call' || evt.type === 'agent_switch') {
+          const label = formatAgentName(evt.agent);
+          if (!shownAgents.has(label)) {
+            shownAgents.add(label);
+            stepsEl.querySelectorAll('.active').forEach(e => e.classList.remove('active'));
+            stepsEl.insertAdjacentHTML('beforeend', `<div class="ai-panel-step active"><span>\u25B6 ${escHtml(label)}</span></div>`);
+          }
+        } else if (evt.type === 'sub_result') {
+          stepsEl.querySelectorAll('.active').forEach(e => e.classList.remove('active'));
+        } else if (evt.type === 'delta') {
+          stepsEl.querySelectorAll('.active').forEach(e => e.classList.remove('active'));
+          answerText += evt.text;
+          answerEl.innerHTML = formatMd(answerText);
+          answerEl.scrollTop = answerEl.scrollHeight;
+        } else if (evt.type === 'session_expired') {
+          handleSessionExpired(); return;
+        } else if (evt.type === 'error') {
+          answerEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(evt.text)}</span>`;
+        }
+      }
+    }
+    stepsEl.querySelectorAll('.active').forEach(e => e.classList.remove('active'));
+    if (!answerText) answerEl.innerHTML = '<span style="color:var(--text-muted)">No additional analysis available.</span>';
+  } catch(e) {
+    if (e.name === 'AbortError') answerEl.innerHTML = '<span style="color:var(--text-muted)">Analysis timed out.</span>';
+    else answerEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(e.message)}</span>`;
+  }
+  clearTimeout(timer);
+  _aiAbort = null;
+  labelEl.innerHTML = 'AI Analysis';
+  btn.textContent = 'Ask AI';
+  btn.disabled = false;
+}
+
+// ─── Workflow Modal ──────────────────────────────────────────────────────
+async function openWorkflowModal(id) {
+  try {
+    const wf = await fetchApi('/api/workflows/' + id);
+    const summary = wf.enriched_summary || wf.summary || '\u2014';
+    const TYPE_LABELS = {};
+
+    // Reasoning chain from enriched workflow
+    const chainHtml = renderReasoningChain(wf.reasoning_chain);
+
+    let left = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="dp-field"><label>Type</label><div class="val"><span class="badge badge-${wf.workflow_type}">${TYPE_LABELS[wf.workflow_type]||wf.workflow_type}</span></div></div>
+        <div class="dp-field"><label>Severity</label><div class="val">${severityBadge(wf.severity)}</div></div>
+        <div class="dp-field"><label>Trigger</label><div class="val">${wf.trigger_source||'\u2014'}</div></div>
+        <div class="dp-field"><label>Entity</label><div class="val">${wf.entity_type||'\u2014'} ${wf.entity_id||''}</div></div>
+      </div>
+      <div class="dp-field"><label>Summary</label><div class="val" style="font-size:13px;line-height:1.6">${escHtml(summary)}</div></div>
+      ${chainHtml}
+      <div style="margin-top:16px;font-size:11px;color:var(--text-muted)">Created: ${wf.created_at||'\u2014'}${wf.completed_at ? ' &middot; Completed: '+wf.completed_at : ''}</div>
+      <div class="ai-panel" id="ai-panel" style="display:none">
+        <div class="ai-panel-label" id="ai-panel-label">AI Analysis</div>
+        <div class="ai-panel-steps" id="ai-panel-steps"></div>
+        <div class="ai-panel-answer" id="ai-panel-answer"></div>
+      </div>`;
+
+    const flow = wf.agent_flow || buildDomainAgentFlow(wf);
+    const right = renderAgentFlowDiagram(flow);
+    const body = `<div class="modal-two-col"><div class="modal-col-left">${left}</div><div class="modal-col-right">${right}</div></div>`;
+
+    const aiPrompt = `Workflow #${wf.workflow_id} (${TYPE_LABELS[wf.workflow_type]||wf.workflow_type}): ${(summary).substring(0,200)}. Provide a data-driven analysis and recommended next steps.`;
+    let footer = '';
+    if (wf.status === 'pending_approval') {
+      footer = `<button class="btn btn-primary" onclick="approveWorkflow(${wf.workflow_id})">Approve</button>
+        <button class="btn btn-secondary" onclick="dismissWorkflow(${wf.workflow_id})">Dismiss</button>`;
+    }
+    footer += `<button class="btn btn-sm btn-blue" id="btn-ask-ai" onclick="askAIInline(this, '${aiPrompt.replace(/'/g, "\\'")}')">Ask AI</button>`;
+
+    openModal('Workflow #' + wf.workflow_id, body, footer);
+    requestAnimationFrame(() => triggerFlowAnimation());
+  } catch(e) { showFlash('Failed to load workflow detail', true); }
+}
+
+async function loadAgentPage() {
+  showSkeleton('agent-kpis', 2);
+  try {
+    const data = await fetchApi('/api/agent-overview');
+    const k = data.kpis || {};
+    _agentWorkflows = data.workflows || [];
+
+    document.getElementById('agent-kpis').innerHTML = `
+      <div class="kpi-card accent"><div class="kpi-label">Pending Approval</div><div class="kpi-value">${fmt(k.pending_approval || 0)}</div><div class="kpi-sub">Needs your review</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">In Progress</div><div class="kpi-value">${fmt(k.in_progress || 0)}</div><div class="kpi-sub">Agent working</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Completed (7d)</div><div class="kpi-value">${fmt(k.completed_7d || 0)}</div><div class="kpi-sub">Approved workflows</div></div>
+      <div class="kpi-card"><div class="kpi-label">Agent Actions (24h)</div><div class="kpi-value">${fmt(k.agent_actions_24h || 0)}</div><div class="kpi-sub">Autonomous actions</div></div>
+    `;
+    animateKPIs('agent-kpis');
+    updateAgentBadge(k.pending_approval || 0);
+    renderAgentSections(_agentWorkflows, _agentFilter);
+
+    const actions = data.agent_actions_recent || [];
+    document.getElementById('agent-activity').innerHTML = actions.length ? `
+      <div class="wf-section-header">Recent Agent Activity <span class="count">${actions.length}</span></div>
+      ${actions.map(a => `
+        <div class="card" style="padding:12px 20px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>${escHtml(a.action_type || 'Action')}</strong>
+              <span class="badge badge-${a.severity || 'medium'}" style="margin-left:8px">${a.severity || 'medium'}</span></div>
+            <span class="badge badge-${a.status || 'pending'}">${a.status || 'pending'}</span>
+          </div>
+          <div style="color:var(--text-muted);margin-top:4px;font-size:13px">${escHtml(a.description || '')}</div>
+        </div>`).join('')}
+    ` : `<div class="wf-section-header">Recent Agent Activity <span class="count">0</span></div>
+      <div class="card" style="padding:12px 20px"><div class="loading" style="padding:16px">No recent agent activity.</div></div>`;
+  } catch(e) {
+    console.error('Agent page error:', e);
+    document.getElementById('agent-kpis').innerHTML = '<div class="loading">Failed to load agent overview. Check Lakebase connection.</div>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ARCHITECTURE PAGE — INTERACTIVE PANZOOM DAG
+   ═══════════════════════════════════════════════════════════════════════════ */
+let _archData = null;
+let _selectedNode = null;
+let _panzoomInstance = null;
+
+const FLOW_ICONS = {
+  orchestrator: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/></svg>',
+  'genie-space': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
+  'serving-endpoint': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
+  'mcp-server': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
+  'data-pipeline': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  infrastructure: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
+  mas: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+  app: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
+  'lakehouse-node': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  lakebase: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+};
+const FLOW_STATUS_ICON = {
+  online: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+};
+
+async function loadArchitecture() {
+  document.getElementById('arch-banner').innerHTML = '<div class="loading">Loading architecture...</div>';
+  try {
+    _archData = await fetchApi('/api/architecture');
+    renderArchBanner(_archData);
+    renderArchDAG(_archData);
+    initPanzoom();
+    setTimeout(archFitView, 100);
+  } catch(e) {
+    console.error('Architecture load error:', e);
+    document.getElementById('arch-banner').innerHTML = '<div class="loading">Failed to load architecture data.</div>';
+  }
+}
+
+function renderArchBanner(data) {
+  document.getElementById('arch-banner').innerHTML = `
+    <div class="arch-banner">
+      <h2>Architecture</h2>
+    </div>`;
+}
+
+function _buildArchNodeCard(node) {
+  const maxItems = 10, maxActions = 2;
+  const items = node.display_items || [];
+  const acts = node.actions || [];
+  const shownItems = items.slice(0, maxItems);
+  const moreItems = items.length - maxItems;
+  const shownActs = acts.slice(0, maxActions);
+  const moreActs = acts.length - maxActions;
+  const status = node.status || 'online';
+  const icon = FLOW_ICONS[node.type] || FLOW_ICONS['mcp-server'];
+  const color = node.color || '#6366f1';
+  const badge = node.type_badge || '';
+
+  const itemsHtml = shownItems.map(it =>
+    `<div class="arch-node-item ${it.status || 'info'}">${escHtml(it.text)}</div>`
+  ).join('');
+  const moreItemsHtml = moreItems > 0 ? `<div class="arch-node-more">+${moreItems} more</div>` : '';
+  const actsHtml = shownActs.map(a =>
+    `<div class="arch-node-action" title="${escHtml(a)}">${escHtml(a.length > 35 ? a.slice(0, 35) + '...' : a)}</div>`
+  ).join('');
+  const moreActsHtml = moreActs > 0 ? `<div class="arch-node-actions-more">+${moreActs} more actions</div>` : '';
+
+  return `
+    <div class="arch-node-accent" style="background:${color}"></div>
+    <div class="arch-node-header ${status}">
+      <span class="arch-node-title">${icon} ${escHtml(node.name)}</span>
+      <span class="arch-node-status-icon ${status}">${FLOW_STATUS_ICON[status] || FLOW_STATUS_ICON.online}</span>
+    </div>
+    <div class="arch-node-body">
+      ${badge ? `<span class="arch-node-type-badge" style="background:${color}15;color:${color}">${badge}</span>` : ''}
+      <div class="arch-node-items">${itemsHtml}${moreItemsHtml}</div>
+      ${acts.length ? `<div class="arch-node-actions-label">Actions:</div>${actsHtml}${moreActsHtml}` : ''}
+    </div>`;
+}
+
+function renderArchDAG(data) {
+  const canvas = document.getElementById('arch-canvas');
+  const nodes = data.nodes || [];
+  const labels = data.column_labels || [];
+  // Clear previous
+  canvas.querySelectorAll('.arch-node, .arch-column-label').forEach(n => n.remove());
+  // Column labels
+  labels.forEach(lbl => {
+    const div = document.createElement('div');
+    div.className = 'arch-column-label';
+    div.style.left = lbl.x + 'px';
+    div.textContent = lbl.label;
+    canvas.appendChild(div);
+  });
+  // Nodes — with drag-to-reposition
+  nodes.forEach(node => {
+    const div = document.createElement('div');
+    div.className = 'arch-node panzoom-exclude';
+    div.dataset.key = node.key;
+    div.style.left = node.position.x + 'px';
+    div.style.top = node.position.y + 'px';
+    div.innerHTML = _buildArchNodeCard(node);
+    _initNodeDrag(div, node);
+    canvas.appendChild(div);
+  });
+  // Auto-size canvas to fit all nodes
+  const maxX = Math.max(...nodes.map(n => n.position.x + 300), 800);
+  const maxY = Math.max(...nodes.map(n => n.position.y + 200), 400);
+  canvas.style.width = maxX + 'px';
+  canvas.style.height = maxY + 'px';
+  drawArchEdges(data);
+}
+
+function smoothstepPath(x1, y1, x2, y2) {
+  const midX = (x1 + x2) / 2;
+  return `M ${x1},${y1} C ${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+}
+
+function drawArchEdges(data) {
+  const svg = document.getElementById('arch-edges');
+  const nodes = data.nodes || [];
+  const edges = data.edges || [];
+  const nodeW = 280;
+
+  const posMap = {};
+  nodes.forEach(n => { posMap[n.key] = n.position; });
+  const nodeH = 140;
+
+  let svgContent = `<defs>
+    <marker id="arch-arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af"/>
+    </marker>
+    <marker id="arch-arrow-blue" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+    <marker id="arch-arrow-amber" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
+    <marker id="arch-arrow-accent" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#E4002B"/>
+    </marker>
+  </defs>`;
+
+  const markerMap = {'#3b82f6': 'arch-arrow-blue', '#f59e0b': 'arch-arrow-amber', '#E4002B': 'arch-arrow-accent'};
+
+  edges.forEach(edge => {
+    const src = posMap[edge.source];
+    const tgt = posMap[edge.target];
+    if (!src || !tgt) return;
+
+    const x1 = src.x + nodeW;
+    const y1 = src.y + nodeH / 2;
+    const x2 = tgt.x;
+    const y2 = tgt.y + nodeH / 2;
+
+    const d = smoothstepPath(x1, y1, x2, y2);
+    const color = edge.color || '#d1d5db';
+    const marker = markerMap[color] || 'arch-arrow';
+    const isAccent = color === '#E4002B';
+    const strokeW = isAccent ? 2.5 : 2;
+    const dash = isAccent ? '' : 'stroke-dasharray="6 4"';
+    svgContent += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeW}" ${dash} marker-end="url(#${marker})"/>`;
+  });
+
+  svg.innerHTML = svgContent;
+}
+
+/* ─── Node Drag-to-Reposition ─── */
+const DRAG_THRESHOLD = 5;
+
+function _initNodeDrag(div, node) {
+  let startX, startY, origLeft, origTop, dragged;
+
+  div.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    div.setPointerCapture(e.pointerId);
+    dragged = false;
+    const scale = _panzoomInstance ? _panzoomInstance.getScale() : 1;
+    startX = e.clientX;
+    startY = e.clientY;
+    origLeft = parseInt(div.style.left) || 0;
+    origTop = parseInt(div.style.top) || 0;
+
+    function onMove(ev) {
+      const dx = (ev.clientX - startX) / scale;
+      const dy = (ev.clientY - startY) / scale;
+      if (!dragged && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      if (!dragged) {
+        dragged = true;
+        div.classList.add('dragging');
+      }
+      const newX = Math.max(0, origLeft + dx);
+      const newY = Math.max(0, origTop + dy);
+      div.style.left = newX + 'px';
+      div.style.top = newY + 'px';
+      node.position.x = newX;
+      node.position.y = newY;
+      drawArchEdges(_archData);
+    }
+
+    function onUp(ev) {
+      div.releasePointerCapture(ev.pointerId);
+      div.removeEventListener('pointermove', onMove);
+      div.removeEventListener('pointerup', onUp);
+      div.classList.remove('dragging');
+      if (!dragged) {
+        selectArchNode(node.key);
+      }
+    }
+
+    div.addEventListener('pointermove', onMove);
+    div.addEventListener('pointerup', onUp);
+  });
+}
+
+function initPanzoom() {
+  const canvas = document.getElementById('arch-canvas');
+  if (!canvas || !window.Panzoom) return;
+  if (_panzoomInstance) _panzoomInstance.destroy();
+  _panzoomInstance = Panzoom(canvas, { maxScale: 3, minScale: 0.2, contain: false, cursor: 'grab', canvas: true });
+  const viewport = document.getElementById('arch-viewport');
+  viewport.addEventListener('wheel', (e) => { _panzoomInstance.zoomWithWheel(e); e.preventDefault(); }, { passive: false });
+}
+
+function archZoomIn() { if (_panzoomInstance) _panzoomInstance.zoomIn(); }
+function archZoomOut() { if (_panzoomInstance) _panzoomInstance.zoomOut(); }
+function archFitView() {
+  if (!_panzoomInstance) return;
+  const viewport = document.getElementById('arch-viewport');
+  const canvas = document.getElementById('arch-canvas');
+  const vw = viewport.clientWidth;
+  const vh = viewport.clientHeight;
+  const cw = parseInt(canvas.style.width) || 1860;
+  const ch = parseInt(canvas.style.height) || 560;
+  const scale = Math.min(vw / cw, vh / ch) * 0.9;
+  const panX = (vw - cw * scale) / 2;
+  const panY = (vh - ch * scale) / 2;
+  _panzoomInstance.zoom(scale, { animate: true });
+  setTimeout(() => _panzoomInstance.pan(panX, panY, { animate: true }), 150);
+}
+
+function selectArchNode(key) {
+  if (_selectedNode === key) { hideFlowDetail(); return; }
+  _selectedNode = key;
+  document.querySelectorAll('.arch-node').forEach(n => n.classList.remove('selected'));
+  const sel = document.querySelector(`.arch-node[data-key="${key}"]`);
+  if (sel) sel.classList.add('selected');
+  const data = _archData;
+  if (!data) return;
+  const info = (data.nodes || []).find(n => n.key === key);
+  if (!info) return;
+  showFlowDetail(info, data.workspace_url || '');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA EXPLORER — two-pane table browser for data nodes
+   ═══════════════════════════════════════════════════════════════════════════ */
+let _deAbort = null;
+let _deCache = {};
+let _deSource = 'delta';
+let _deWUrl = '';
+
+function renderDataExplorer(info, wUrl) {
+  const panel = document.getElementById('flow-detail-panel');
+  const details = info.details || {};
+  const tables = details.tables || [];
+  const rowCounts = details.row_counts || {};
+  const schemas = details.table_schemas || {};
+  const status = info.status || 'online';
+  const color = info.color || '#3b82f6';
+  const icon = FLOW_ICONS[info.type] || FLOW_ICONS['mcp-server'];
+
+  _deSource = (info.key === 'lakebase_setup' || info.key === 'lakebase') ? 'lakebase' : 'delta';
+  _deWUrl = wUrl;
+  _deCache = {};
+
+  for (const [tbl, cols] of Object.entries(schemas)) {
+    _deCache[tbl] = { columns: cols, rows: null, row_count: rowCounts[tbl] ?? null };
+  }
+
+  const sidebarItems = tables.map(t => {
+    const cnt = rowCounts[t];
+    const cntLabel = typeof cnt === 'number' ? cnt.toLocaleString() + ' rows' : '';
+    return `<li data-table="${escHtml(t)}" onclick="deSelectTable('${escHtml(t)}')">${escHtml(t.replace(/_/g, ' '))}<span class="de-row-count">${cntLabel}</span></li>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="flow-detail-header ${status}">
+      <div class="flow-detail-header-left">
+        <div class="flow-detail-icon" style="background:${color}15;color:${color}">${icon}</div>
+        <span class="flow-detail-name">${escHtml(info.name || '')}</span>
+        <span class="flow-detail-badge ${status}">${FLOW_STATUS_ICON[status] || ''} ${status === 'online' ? 'ONLINE' : 'ERROR'}</span>
+      </div>
+      <div class="flow-detail-header-right">
+        <button class="flow-detail-close" onclick="event.stopPropagation();hideFlowDetail()">&times;</button>
+      </div>
+    </div>
+    <div class="data-explorer">
+      <div class="data-explorer-sidebar">
+        <div class="de-sidebar-header">Tables (${tables.length})</div>
+        <ul class="de-table-list">${sidebarItems}</ul>
+      </div>
+      <div class="data-explorer-content" id="de-content">
+        <div class="de-empty-state">Select a table to explore</div>
+      </div>
+    </div>`;
+  panel.classList.add('open');
+
+  if (tables.length) deSelectTable(tables[0]);
+}
+
+function deSelectTable(tableName) {
+  document.querySelectorAll('.de-table-list li').forEach(li => li.classList.remove('active'));
+  const active = document.querySelector(`.de-table-list li[data-table="${tableName}"]`);
+  if (active) active.classList.add('active');
+
+  const content = document.getElementById('de-content');
+  if (!content) return;
+
+  if (_deAbort) { _deAbort.abort(); _deAbort = null; }
+
+  const cached = _deCache[tableName];
+  if (cached && cached.columns && cached.columns.length) {
+    content.innerHTML = _deRenderCards(tableName, cached.columns, cached.rows, cached.row_count, !cached.rows, cached.queryMs);
+  } else {
+    content.innerHTML = `<div class="de-loading"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg> Loading...</div>`;
+  }
+
+  const ctrl = new AbortController();
+  _deAbort = ctrl;
+  const t0 = performance.now();
+  fetch(`/api/architecture/table-data?table=${encodeURIComponent(tableName)}&source=${_deSource}&limit=20`, { signal: ctrl.signal })
+    .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+    .then(data => {
+      if (ctrl.signal.aborted) return;
+      const queryMs = performance.now() - t0;
+      _deCache[tableName] = { columns: data.columns, rows: data.rows, row_count: data.row_count, queryMs };
+      const stillActive = document.querySelector('.de-table-list li.active');
+      if (stillActive && stillActive.dataset.table === tableName) {
+        content.innerHTML = _deRenderCards(tableName, data.columns, data.rows, data.row_count, false, queryMs);
+      }
+    })
+    .catch(e => {
+      if (e.name === 'AbortError') return;
+      if (ctrl.signal.aborted) return;
+      if (cached && cached.columns && cached.columns.length) {
+        content.innerHTML = _deRenderCards(tableName, cached.columns, null, cached.row_count, false, cached.queryMs);
+      } else {
+        content.innerHTML = `<div class="de-empty-state">Failed to load table data</div>`;
+      }
+    });
+}
+
+function _deRenderCards(tableName, columns, rows, rowCount, loading, queryMs) {
+  let html = '';
+  const countLabel = typeof rowCount === 'number' ? `${rowCount.toLocaleString()} rows` : '';
+  const timerBadge = queryMs ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:#f59e0b;margin-left:8px" title="Query execution time">&#9889; ${queryMs.toFixed(1)}ms</span>` : '';
+  // Sample data card
+  html += `<div class="de-card">
+    <div class="de-card-header"><span>Sample Data &middot; ${escHtml(tableName.replace(/_/g, ' '))}</span><span style="font-weight:400;text-transform:none;letter-spacing:0">${rows ? rows.length + ' rows' : ''}${timerBadge}</span></div>
+    <div class="de-card-body">${loading
+      ? '<div class="de-loading"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg> Loading sample data...</div>'
+      : rows ? _deRenderSampleTable(columns, rows) : '<div class="de-empty-state">No sample data available</div>'
+    }</div>
+  </div>`;
+  // Schema card
+  html += `<div class="de-card">
+    <div class="de-card-header"><span>Schema &middot; ${escHtml(tableName.replace(/_/g, ' '))}</span><span style="font-weight:400;text-transform:none;letter-spacing:0">${countLabel}</span></div>
+    <div class="de-card-body">${_deRenderSchemaTable(columns)}</div>
+  </div>`;
+  return html;
+}
+
+function _deRenderSchemaTable(columns) {
+  if (!columns || !columns.length) return '<div class="de-empty-state">No schema available</div>';
+  const hasExtended = columns.some(c => c.nullable !== undefined || c.key);
+  let head = '<tr><th>Column</th><th>Type</th>';
+  if (hasExtended) head += '<th>Nullable</th><th>Default</th><th>Key</th>';
+  head += '</tr>';
+  const rows = columns.map(c => {
+    let row = `<tr><td style="font-weight:500">${escHtml(c.col)}</td><td><span class="de-badge-type">${escHtml(c.type)}</span></td>`;
+    if (hasExtended) {
+      row += `<td>${c.nullable ? '<span class="de-badge-nullable">NULL</span>' : 'NOT NULL'}</td>`;
+      row += `<td style="font-size:11px;color:var(--text-muted)">${c.default ? escHtml(String(c.default).substring(0, 30)) : '\u2014'}</td>`;
+      row += `<td>${c.key ? '<span class="de-badge-pk">' + escHtml(c.key) + '</span>' : ''}</td>`;
+    }
+    row += '</tr>';
+    return row;
+  }).join('');
+  return `<table>${head}${rows}</table>`;
+}
+
+function _deRenderSampleTable(columns, rows) {
+  if (!rows || !rows.length) return '<div class="de-empty-state">No data</div>';
+  const colNames = columns.map(c => c.col);
+  const head = '<tr>' + colNames.map(c => `<th>${escHtml(c)}</th>`).join('') + '</tr>';
+  const body = rows.map(r => {
+    return '<tr>' + colNames.map(c => {
+      const v = r[c];
+      if (v === null || v === undefined) return `<td><span class="de-null-cell">null</span></td>`;
+      let s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      if (s.length > 100) s = s.substring(0, 100) + '\u2026';
+      return `<td title="${escHtml(String(r[c]))}">${escHtml(s)}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  return `<table>${head}${body}</table>`;
+}
+
+function showFlowDetail(info, wUrl) {
+  if (info.key === 'lakehouse' || info.key === 'lakebase' || info.key === 'data_generation' || info.key === 'lakebase_setup') {
+    renderDataExplorer(info, wUrl);
+    return;
+  }
+  const panel = document.getElementById('flow-detail-panel');
+  const status = info.status || 'online';
+  const color = info.color || '#6366f1';
+  const icon = FLOW_ICONS[info.type] || FLOW_ICONS['mcp-server'];
+  const details = info.details || {};
+  const stats = info.stats || [];
+  const displayItems = info.display_items || [];
+
+  // Workspace link
+  let configUrl = info.workspace_url || '';
+  if (!configUrl) {
+    if (info.key === 'mas' && wUrl && details.tile_id) {
+      configUrl = `${wUrl}/ml/bricks/mas/configure/${details.tile_id}`;
+    } else if (info.type === 'genie-space' && wUrl && details.genie_space_id) {
+      configUrl = `${wUrl}/genie/rooms/${details.genie_space_id}`;
+    }
+  }
+
+  // Build sections array — each section is {title, html, wide?}
+  const sections = [];
+
+  // Description (always full width)
+  const desc = info.description || details.genie_description || details.ka_description || '';
+  if (desc) {
+    sections.push({title: 'Description', html: `<p style="font-size:13px;color:var(--text);line-height:1.6;margin:0">${escHtml(desc)}</p>`, wide: true});
+  }
+
+  // Stats
+  const statsHtml = stats.map(s =>
+    `<span class="flow-detail-stat">${fmt(s.value)} ${escHtml(s.label)}</span>`
+  ).join('');
+  if (statsHtml) {
+    sections.push({title: 'Stats', html: `<div class="flow-detail-stats">${statsHtml}</div>`});
+  }
+
+  // Display items (component list)
+  const filteredItems = displayItems.filter(it => it.text);
+  if (filteredItems.length) {
+    const itemsHtml = filteredItems.map(it =>
+      `<div style="font-size:12px;display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="width:6px;height:6px;border-radius:50%;background:${it.status === 'success' ? '#16a34a' : it.status === 'info' ? '#3b82f6' : '#9ca3af'};flex-shrink:0"></span>
+        ${escHtml(it.text)}
+      </div>`
+    ).join('');
+    sections.push({title: 'Components', html: itemsHtml});
+  }
+
+  // Genie Space — connected tables and curated questions
+  const genieTables = details.genie_tables || [];
+  const curatedQ = details.curated_question || '';
+  if (genieTables.length) {
+    let html = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${genieTables.map(t =>
+      `<span style="font-size:11px;background:var(--steel-bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;color:var(--text)">${escHtml(typeof t === 'string' ? t : '')}</span>`
+    ).join('')}</div>`;
+    if (curatedQ) {
+      html += `<div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-top:4px">Sample: "${escHtml(curatedQ)}"</div>`;
+    }
+    sections.push({title: `Connected Tables (${genieTables.length})`, html});
+  }
+
+  // KA details — indexes and endpoint state
+  const kaIndexes = details.ka_indexes || [];
+  const kaEndpoint = details.ka_endpoint || details.endpoint_name || '';
+  const kaState = details.endpoint_state || '';
+  if (kaIndexes.length || kaEndpoint || kaState) {
+    let html = '';
+    if (kaState) {
+      html += `<div style="font-size:12px;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        <span style="width:6px;height:6px;border-radius:50%;background:${kaState === 'READY' ? '#16a34a' : '#f59e0b'}"></span>
+        Endpoint: ${escHtml(kaEndpoint || 'N/A')} — ${escHtml(kaState)}
+      </div>`;
+    }
+    if (kaIndexes.length) {
+      html += `<div style="font-size:12px;font-weight:600;margin-bottom:4px">Vector Search Indexes (${kaIndexes.length})</div>`;
+      html += kaIndexes.map(idx =>
+        `<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;padding-left:8px">• ${escHtml(idx)}</div>`
+      ).join('');
+    }
+    sections.push({title: 'Knowledge Assistant', html});
+  }
+
+  // MAS sub-agents
+  const subAgents = details.sub_agent_names || [];
+  if (subAgents.length) {
+    const html = subAgents.map(a =>
+      `<div style="font-size:12px;display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="width:6px;height:6px;border-radius:50%;background:#3b82f6;flex-shrink:0"></span>
+        ${escHtml(a)}
+      </div>`
+    ).join('');
+    sections.push({title: 'Sub-Agents', html});
+  }
+
+  // MAS instructions (truncated)
+  const masInstructions = details.instructions || '';
+  if (masInstructions) {
+    const truncated = masInstructions.length > 200 ? masInstructions.substring(0, 200) + '...' : masInstructions;
+    sections.push({title: 'System Instructions', html: `<p style="font-size:11px;color:var(--text-muted);line-height:1.5;margin:0;font-style:italic">${escHtml(truncated)}</p>`});
+  }
+
+  // UC Function details
+  const fnDetails = details.function_details || {};
+  const fnEntries = Object.entries(fnDetails);
+  if (fnEntries.length) {
+    const html = fnEntries.map(([fn, info]) => {
+      const infoEntries = Object.entries(info || {}).filter(([k]) => k !== 'function_name').slice(0, 4);
+      return `<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:600">${escHtml(fn)}</div>` +
+        infoEntries.map(([k, v]) => `<div style="font-size:11px;color:var(--text-muted)">${escHtml(k)}: ${escHtml(String(v).substring(0, 80))}</div>`).join('') +
+        `</div>`;
+    }).join('');
+    sections.push({title: 'Functions', html});
+  }
+
+  // Table schemas
+  const tableSchemas = details.table_schemas || {};
+  const schemaEntries = Object.entries(tableSchemas);
+  if (schemaEntries.length) {
+    const html = schemaEntries.slice(0, 6).map(([tbl, cols]) => {
+      const colList = (cols || []).slice(0, 8);
+      const moreCount = (cols || []).length - 8;
+      return `<div style="margin-bottom:8px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:3px">${escHtml(tbl)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">${colList.map(c =>
+          `<span style="font-size:10px;background:var(--steel-bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--text-muted)">${escHtml(c.col)} <span style="color:#9ca3af">${escHtml(c.type)}</span></span>`
+        ).join('')}${moreCount > 0 ? `<span style="font-size:10px;color:var(--text-muted)">+${moreCount} more</span>` : ''}</div>
+      </div>`;
+    }).join('');
+    sections.push({title: `Table Schemas (${schemaEntries.length})`, html, wide: true});
+  }
+
+  // Tables list (fallback when no schemas)
+  const tables = details.tables || [];
+  if (tables.length && !schemaEntries.length) {
+    const html = `<div class="flow-detail-tables">${tables.map(t =>
+      `<span class="flow-detail-table-pill">${escHtml(typeof t === 'string' ? t.replace(/_/g, ' ') : t)}</span>`
+    ).join('')}</div>`;
+    sections.push({title: 'Tables', html});
+  }
+
+  // Functions list (fallback for UC node without detailed info)
+  const functions = details.functions || [];
+  if (functions.length && !fnEntries.length) {
+    const html = `<div style="display:flex;flex-wrap:wrap;gap:4px">${functions.map(f =>
+      `<span style="font-size:11px;background:var(--steel-bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px">${escHtml(f)}</span>`
+    ).join('')}</div>`;
+    sections.push({title: 'Functions', html});
+  }
+
+  // Build the grid content
+  const wideSections = sections.filter(s => s.wide);
+  const normalSections = sections.filter(s => !s.wide);
+
+  const wideHtml = wideSections.map(s =>
+    `<div class="flow-detail-section" style="grid-column:1/-1">${s.title ? `<h4>${escHtml(s.title)}</h4>` : ''}${s.html}</div>`
+  ).join('');
+
+  const normalHtml = normalSections.map(s =>
+    `<div class="flow-detail-section">${s.title ? `<h4>${escHtml(s.title)}</h4>` : ''}${s.html}</div>`
+  ).join('');
+
+  panel.innerHTML = `
+    <div class="flow-detail-header ${status}">
+      <div class="flow-detail-header-left">
+        <div class="flow-detail-icon" style="background:${color}15;color:${color}">${icon}</div>
+        <span class="flow-detail-name">${escHtml(info.name || '')}</span>
+        <span class="flow-detail-badge ${status}">${FLOW_STATUS_ICON[status] || ''} ${status === 'online' ? 'ONLINE' : 'ERROR'}</span>
+      </div>
+      <div class="flow-detail-header-right">
+        ${configUrl ? `<a href="${escHtml(configUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Open in Workspace
+        </a>` : ''}
+        <button class="flow-detail-close" onclick="event.stopPropagation();hideFlowDetail()">&times;</button>
+      </div>
+    </div>
+    <div class="flow-detail-body">
+      <div class="flow-detail-right">
+        ${wideHtml}
+        ${normalHtml}
+      </div>
+    </div>`;
+  panel.classList.add('open');
+}
+
+function hideFlowDetail() {
+  _selectedNode = null;
+  document.querySelectorAll('.arch-node').forEach(n => n.classList.remove('selected'));
+  const panel = document.getElementById('flow-detail-panel');
+  if (panel) panel.classList.remove('open');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD — Greeting, KPIs, Exceptions, Briefing, Activity
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// ─── Collapsible Section Toggle ──────────────────────────────────────────
+function toggleSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  if (section) section.classList.toggle('collapsed');
+}
+
+// ─── Sparkline Utility ───────────────────────────────────────────────────
+function drawSparkline(canvas, data, color) {
+  if (!canvas || !data || data.length < 2) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth || 120;
+  const h = canvas.height = canvas.offsetHeight || 28;
+  ctx.clearRect(0, 0, w, h);
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const step = w / (data.length - 1);
+  ctx.beginPath();
+  ctx.strokeStyle = color || 'var(--accent)';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+// ─── Dashboard Loader ────────────────────────────────────────────────────
+async function loadDashboard() {
+  // Greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('dash-greeting-text').textContent = greeting;
+  document.getElementById('dash-greeting-sub').textContent = 'Loading operational summary...';
+
+  showSkeleton('dash-kpis', 2);
+  showSkeleton('dash-exceptions', 3);
+  showSkeleton('dash-activity', 3);
+  document.getElementById('dash-briefing').innerHTML = '<div class="loading">Loading briefing...</div>';
+
+  try {
+    // Gotcha #46: Every fetchApi in Promise.all needs .catch() so one failure doesn't break the dashboard
+    const [overview, exceptions] = await Promise.all([
+      fetchApi('/api/agent-overview').catch(() => ({kpis: {}, workflows: [], agent_actions_recent: []})),
+      fetchApi('/api/exceptions?status=open&limit=20').catch(() => []),
+    ]);
+
+    const k = overview.kpis || {};
+
+    // KPIs
+    document.getElementById('dash-kpis').innerHTML = `
+      <div class="kpi-card red">
+        <div class="kpi-label">Open Exceptions</div>
+        <div class="kpi-value">${fmt(k.open_exceptions || 0)}</div>
+        <div class="kpi-sub">Needs attention</div>
+        <canvas class="kpi-sparkline" id="spark-exc" style="width:100%;height:28px"></canvas>
+      </div>
+      <div class="kpi-card accent">
+        <div class="kpi-label">Pending Approval</div>
+        <div class="kpi-value">${fmt(k.pending_approval || 0)}</div>
+        <div class="kpi-sub">Agent workflows</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Completed (7d)</div>
+        <div class="kpi-value">${fmt(k.completed_7d || 0)}</div>
+        <div class="kpi-sub">Approved workflows</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Agent Actions (24h)</div>
+        <div class="kpi-value">${fmt(k.agent_actions_24h || 0)}</div>
+        <div class="kpi-sub">Autonomous actions</div>
+      </div>
+    `;
+    animateKPIs('dash-kpis');
+    updateAgentBadge(k.pending_approval || 0);
+
+    // Sparkline placeholder data (replace with real trend data if available)
+    setTimeout(() => {
+      const sparkCanvas = document.getElementById('spark-exc');
+      if (sparkCanvas) {
+        // TODO(vibe): Replace with real trend data from API
+        const trend = Array.from({length: 7}, () => Math.floor(Math.random() * 10) + (k.open_exceptions || 3));
+        drawSparkline(sparkCanvas, trend, '#ef4444');
+      }
+    }, 200);
+
+    // Exceptions
+    renderDashExceptions(exceptions);
+
+    // Recent activity
+    const actions = overview.agent_actions_recent || [];
+    renderDashActivity(actions);
+
+    // Greeting update
+    const excCount = k.open_exceptions || 0;
+    const pendingWf = k.pending_approval || 0;
+    const parts = [];
+    if (excCount > 0) parts.push(`${excCount} open exception${excCount > 1 ? 's' : ''}`);
+    if (pendingWf > 0) parts.push(`${pendingWf} pending workflow${pendingWf > 1 ? 's' : ''}`);
+    document.getElementById('dash-greeting-sub').textContent = parts.length
+      ? `You have ${parts.join(' and ')} needing attention.`
+      : 'All systems operational — no items need attention.';
+
+  } catch(e) {
+    console.error('Dashboard load error:', e);
+    document.getElementById('dash-kpis').innerHTML = '<div class="loading">Failed to load dashboard data.</div>';
+  }
+
+  // Load briefing (async, non-blocking)
+  loadBriefing();
+}
+
+// ─── Exception Cards ─────────────────────────────────────────────────────
+function renderDashExceptions(exceptions) {
+  const container = document.getElementById('dash-exceptions');
+  const countBadge = document.getElementById('dash-exc-count');
+  if (countBadge) countBadge.textContent = exceptions.length;
+
+  if (!exceptions.length) {
+    container.innerHTML = '<div class="loading" style="padding:16px">No open exceptions — all clear.</div>';
+    return;
+  }
+
+  container.innerHTML = exceptions.map(exc => {
+    const truncDesc = (exc.description || '').length > 120 ? exc.description.substring(0, 120) + '...' : exc.description;
+    return `
+      <div class="exc-card exc-${exc.severity || 'medium'}">
+        <div class="exc-top">
+          <span class="exc-title">${escHtml(exc.exception_type || 'Exception')}</span>
+          ${severityBadge(exc.severity || 'medium')}
+          ${statusBadge(exc.status || 'open')}
+        </div>
+        <div class="exc-desc">${escHtml(truncDesc || '')}</div>
+        <div class="exc-meta">${escHtml(exc.entity_type || '')} ${escHtml(exc.entity_id || '')} &middot; ${timeAgo(exc.created_at)}</div>
+        <div class="exc-actions">
+          <button class="btn btn-sm btn-primary" onclick="handleException(${exc.exception_id},'acknowledged')">Acknowledge</button>
+          <button class="btn btn-sm btn-green" onclick="promptResolveException(${exc.exception_id})">Resolve</button>
+          <button class="btn btn-sm btn-steel" onclick="handleException(${exc.exception_id},'escalated')">Escalate</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function handleException(id, status, resolution) {
+  try {
+    const body = {status};
+    if (resolution) body.resolution = resolution;
+    await patchApi('/api/exceptions/' + id, body);
+    showFlash(`Exception ${status}`);
+    if (currentPage === 'dashboard') loadDashboard();
+  } catch(e) { showFlash('Failed to update exception', true); }
+}
+
+function promptResolveException(id) {
+  const resolution = prompt('Enter resolution notes:');
+  if (resolution !== null) handleException(id, 'resolved', resolution);
+}
+
+// ─── Recent Activity ─────────────────────────────────────────────────────
+function renderDashActivity(actions) {
+  const container = document.getElementById('dash-activity');
+  if (!actions.length) {
+    container.innerHTML = '<div class="loading" style="padding:16px">No recent agent activity.</div>';
+    return;
+  }
+  container.innerHTML = actions.slice(0, 10).map(a => `
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${escHtml(a.action_type || 'Action')}</strong>
+        <span>${timeAgo(a.created_at)}</span>
+      </div>
+      <div style="color:var(--text-muted);margin-top:2px">${escHtml((a.description || '').substring(0, 100))}</div>
+    </div>`).join('');
+}
+
+// ─── Briefing ────────────────────────────────────────────────────────────
+async function loadBriefing() {
+  const container = document.getElementById('dash-briefing');
+  try {
+    const data = await fetchApi('/api/briefing');
+    container.innerHTML = formatMd(data.briefing || 'No briefing available.');
+  } catch(e) {
+    container.innerHTML = '<div class="loading">Briefing unavailable.</div>';
+  }
+}
+
+async function loadBriefingStream() {
+  const container = document.getElementById('dash-briefing');
+  container.innerHTML = '<div class="loading">Generating briefing...</div>';
+  try {
+    const resp = await fetch('/api/briefing/stream');
+    if (!resp.ok) throw new Error('Stream failed');
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', text = '';
+    container.innerHTML = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6);
+        if (raw === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(raw);
+          if (evt.type === 'delta') {
+            text += evt.text;
+            container.innerHTML = formatMd(text);
+          }
+        } catch(_) {}
+      }
+    }
+    if (!text) container.innerHTML = '<div class="loading">No briefing content.</div>';
+  } catch(e) {
+    container.innerHTML = '<div class="loading">Streaming briefing failed.</div>';
+    loadBriefing();  // fallback to non-streaming
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKFLOW ENRICHMENT — Reasoning chain + enriched summary in modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderReasoningChain(chain) {
+  if (!chain || !Array.isArray(chain) || !chain.length) return '';
+  const TOOL_ICONS = {
+    monitor: '\u{1F50D}', analyze: '\u{1F4CA}', action: '\u26A1',
+    query: '\u{1F4C4}', write: '\u270F\uFE0F', approve: '\u2705',
+    // TODO(vibe): Add your tool icons here
+  };
+  const steps = chain.map((s, i) => {
+    const icon = TOOL_ICONS[s.tool] || '\u25CF';
+    const status = s.status || 'completed';
+    const output = s.output || '';
+    return `
+      <div class="rc-step">
+        <div class="rc-icon ${status}">${status === 'completed' ? '\u2714' : status === 'active' ? '\u25B6' : '\u25CB'}</div>
+        <div class="rc-body">
+          <div class="rc-label">${icon} ${escHtml(s.label || 'Step ' + (i+1))}</div>
+          ${output ? `<div class="rc-output collapsed" onclick="this.classList.toggle('collapsed');this.classList.toggle('expanded')">${escHtml(output)}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  return `<div style="margin-top:16px"><label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:.5px;font-weight:700">Reasoning Chain</label><div class="rc-chain">${steps}</div></div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════════════════ */
+try { lucide.createIcons(); } catch(e) { console.warn('Lucide not loaded:', e); }
+loadDashboard();
+</script>
+</body>
+</html>
