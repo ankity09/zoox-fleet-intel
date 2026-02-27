@@ -8,7 +8,9 @@ Add your domain-specific routes below the marked section.
 import asyncio
 import json
 import logging
+import math
 import os
+import random
 import re
 import time as _time
 import uuid as _uuid
@@ -121,7 +123,24 @@ def _clear_chat_history():
 #         "detail_cols": {"asset": "asset_name", "priority": "priority", "status": "status"},
 #     },
 # ]
-ACTION_CARD_TABLES: list[dict] = []
+ACTION_CARD_TABLES: list[dict] = [
+    {
+        "table": "fleet_actions",
+        "card_type": "fleet_action",
+        "id_col": "action_id",
+        "title_template": "Fleet Action: {action_type}",
+        "actions": ["approve", "dismiss"],
+        "detail_cols": {"from": "from_zone", "to": "to_zone", "vehicles": "vehicle_count", "priority": "priority"},
+    },
+    {
+        "table": "surge_alerts",
+        "card_type": "surge_alert",
+        "id_col": "alert_id",
+        "title_template": "Surge Alert: {zone_id}",
+        "actions": ["approve", "dismiss"],
+        "detail_cols": {"zone": "zone_id", "severity": "severity", "demand": "predicted_demand_score"},
+    },
+]
 
 
 # ─── Lifespan ─────────────────────────────────────────────────────────────
@@ -1314,8 +1333,45 @@ def _build_briefing_context() -> str:
             parts.append(f"Agent actions (24h): {actions[0].get('cnt', 0)}")
     except Exception:
         pass
-    # TODO(vibe): Add domain-specific data gathering here
-    # Example: parts.append(f"Late shipments: {run_query('SELECT COUNT(*) ...')}")
+    # Fleet-specific context
+    try:
+        fleet_metrics = run_query(
+            "SELECT COUNT(*) as total_vehicles, "
+            "SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, "
+            "AVG(battery_pct) as avg_battery "
+            "FROM serverless_simplot_v1_catalog.zoox_fleet_intel.vehicles"
+        )
+        if fleet_metrics:
+            m = fleet_metrics[0]
+            parts.append(f"Fleet: {m.get('total_vehicles', 0)} vehicles, {m.get('active', 0)} active, avg battery {m.get('avg_battery', 0):.0f}%")
+    except Exception:
+        pass
+    try:
+        upcoming = run_query(
+            "SELECT event_name, venue, event_date, expected_attendance, demand_multiplier "
+            "FROM serverless_simplot_v1_catalog.zoox_fleet_intel.events "
+            "WHERE event_date >= CURRENT_DATE() ORDER BY event_date LIMIT 5"
+        )
+        if upcoming:
+            event_lines = []
+            for e in upcoming:
+                event_lines.append(f"  {e.get('event_name', 'Event')} at {e.get('venue', '')} ({e.get('event_date', '')}, {e.get('expected_attendance', 0)} expected, {e.get('demand_multiplier', 1.0)}x demand)")
+            nl = "\n"
+            parts.append(f"Upcoming events:{nl}{nl.join(event_lines)}")
+    except Exception:
+        pass
+    try:
+        open_alerts = run_pg_query("SELECT COUNT(*) as cnt FROM surge_alerts WHERE status = 'open'")
+        if open_alerts:
+            parts.append(f"Open surge alerts: {open_alerts[0].get('cnt', 0)}")
+    except Exception:
+        pass
+    try:
+        pending_actions = run_pg_query("SELECT COUNT(*) as cnt FROM fleet_actions WHERE status = 'pending'")
+        if pending_actions:
+            parts.append(f"Pending fleet actions: {pending_actions[0].get('cnt', 0)}")
+    except Exception:
+        pass
     return "\n".join(parts) if parts else "No operational data available."
 
 
@@ -1436,13 +1492,18 @@ def _enrich_workflow(wf: dict) -> dict:
     if not wf.get("headline"):
         # TODO(vibe): Add workflow_type -> headline templates for your domain
         # Example: "reorder_po": f"Reorder PO for {wf.get('entity_id', 'unknown')}"
-        TYPE_HEADLINES = {}
+        TYPE_HEADLINES = {
+            "rebalancing_request": "Fleet Rebalancing: {entity}",
+            "surge_response": "Surge Response: {entity}",
+            "dispatch_override": "Dispatch Override: {entity}",
+        }
         wtype = wf.get("workflow_type", "workflow")
         entity = f"{wf.get('entity_type', '')} {wf.get('entity_id', '')}".strip()
-        wf["headline"] = TYPE_HEADLINES.get(
-            wtype,
-            f"{wtype.replace('_', ' ').title()}: {entity}" if entity else wtype.replace("_", " ").title(),
-        )
+        template = TYPE_HEADLINES.get(wtype, "")
+        if template:
+            wf["headline"] = template.replace("{entity}", entity or "Fleet")
+        else:
+            wf["headline"] = (wtype.replace("_", " ").title() + ": " + entity) if entity else wtype.replace("_", " ").title()
 
     # ── Enriched Summary ──
     if not wf.get("enriched_summary"):
@@ -1477,23 +1538,705 @@ def _enrich_workflow(wf: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# --- Add your domain routes below ---
+# Zoox Fleet Intelligence — Domain Routes
 # ═══════════════════════════════════════════════════════════════════════════
-#
-# Example:
-#   @app.get("/api/my-domain/metrics")
-#   async def get_metrics():
-#       return await asyncio.to_thread(run_query, "SELECT COUNT(*) as total FROM my_table")
-#
-#   @app.get("/api/my-domain/items")
-#   async def get_items(status: str = None):
-#       if status:
-#           return await asyncio.to_thread(
-#               run_pg_query,
-#               "SELECT * FROM items WHERE status = %s ORDER BY created_at DESC",
-#               (_safe(status),),
-#           )
-#       return await asyncio.to_thread(run_pg_query, "SELECT * FROM items ORDER BY created_at DESC")
+
+from pydantic import BaseModel
+from typing import Optional
+
+
+class FleetActionCreate(BaseModel):
+    action_type: str
+    from_zone: str
+    to_zone: str
+    vehicle_count: int = 1
+    city: str
+    reason: str = ""
+    priority: str = "medium"
+
+
+class SurgeAlertCreate(BaseModel):
+    zone_id: str
+    city: str
+    event_name: str = ""
+    predicted_demand_score: float = 0.0
+    current_supply: int = 0
+    severity: str = "medium"
+    recommended_action: str = ""
+
+
+class DispatchOverrideCreate(BaseModel):
+    vehicle_id: str
+    from_zone: str
+    to_zone: str
+    city: str
+    reason: str = ""
+    override_by: str = "operator"
+
+
+_FQ = "serverless_simplot_v1_catalog.zoox_fleet_intel"
+
+
+@app.get("/api/fleet/metrics")
+async def get_fleet_metrics():
+    """Fleet dashboard KPIs — parallel Delta + Lakebase queries."""
+    q_util, q_wait, q_rides_day, q_empty, q_alerts, q_actions = await asyncio.gather(
+        asyncio.to_thread(
+            run_query,
+            f"SELECT ROUND(100.0 * SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) / COUNT(*), 1) as utilization "
+            f"FROM {_FQ}.vehicles",
+        ),
+        asyncio.to_thread(
+            run_query,
+            f"SELECT ROUND(AVG(wait_time_min), 1) as avg_wait "
+            f"FROM {_FQ}.rides WHERE ride_status = 'completed' "
+            f"AND request_time >= DATE_FORMAT(DATE_SUB(CURRENT_DATE(), 7), 'yyyy-MM-dd')",
+        ),
+        asyncio.to_thread(
+            run_query,
+            f"SELECT ROUND(COUNT(*) / 7.0 / (SELECT COUNT(*) FROM {_FQ}.vehicles), 1) as rpvd "
+            f"FROM {_FQ}.rides WHERE ride_status = 'completed' "
+            f"AND request_time >= DATE_FORMAT(DATE_SUB(CURRENT_DATE(), 7), 'yyyy-MM-dd')",
+        ),
+        asyncio.to_thread(
+            run_query,
+            f"SELECT ROUND(100.0 * SUM(CASE WHEN pickup_zone != dropoff_zone THEN distance_miles ELSE 0 END) / "
+            f"NULLIF(SUM(distance_miles), 0), 1) as empty_ratio "
+            f"FROM {_FQ}.rides WHERE ride_status = 'completed' "
+            f"AND request_time >= DATE_FORMAT(DATE_SUB(CURRENT_DATE(), 7), 'yyyy-MM-dd')",
+        ),
+        asyncio.to_thread(run_pg_query, "SELECT COUNT(*) as cnt FROM surge_alerts WHERE status = 'open'"),
+        asyncio.to_thread(run_pg_query, "SELECT COUNT(*) as cnt FROM fleet_actions WHERE status = 'pending'"),
+        return_exceptions=True,
+    )
+
+    def _val(r, key, default=0):
+        if isinstance(r, Exception):
+            return default
+        return (r or [{}])[0].get(key, default)
+
+    return {
+        "fleet_utilization_pct": _val(q_util, "utilization", 0),
+        "avg_wait_time_min": _val(q_wait, "avg_wait", 0),
+        "rides_per_vehicle_day": _val(q_rides_day, "rpvd", 0),
+        "empty_mile_ratio": _val(q_empty, "empty_ratio", 0),
+        "open_surge_alerts": _val(q_alerts, "cnt", 0),
+        "pending_fleet_actions": _val(q_actions, "cnt", 0),
+    }
+
+
+@app.get("/api/fleet/vehicles")
+async def get_fleet_vehicles(
+    city: Optional[str] = None,
+    status: Optional[str] = None,
+    zone: Optional[str] = None,
+):
+    """Filterable vehicle list from Delta Lake."""
+    where = []
+    if city:
+        where.append(f"city = '{_safe(city)}'")
+    if status:
+        where.append(f"status = '{_safe(status)}'")
+    if zone:
+        where.append(f"current_zone = '{_safe(zone)}'")
+    clause = " WHERE " + " AND ".join(where) if where else ""
+    return await asyncio.to_thread(
+        run_query,
+        f"SELECT * FROM {_FQ}.vehicles{clause} ORDER BY vehicle_id",
+    )
+
+
+@app.get("/api/fleet/vehicles/{vehicle_id}")
+async def get_fleet_vehicle(vehicle_id: str):
+    """Vehicle detail with notes and recent rides."""
+    safe_id = _safe(vehicle_id)
+    q_vehicle, q_notes, q_rides = await asyncio.gather(
+        asyncio.to_thread(run_query, f"SELECT * FROM {_FQ}.vehicles WHERE vehicle_id = '{safe_id}'"),
+        asyncio.to_thread(
+            run_pg_query,
+            "SELECT * FROM notes WHERE entity_type = 'vehicle' AND entity_id = %s ORDER BY created_at DESC LIMIT 10",
+            (vehicle_id,),
+        ),
+        asyncio.to_thread(
+            run_query,
+            f"SELECT * FROM {_FQ}.rides WHERE vehicle_id = '{safe_id}' ORDER BY request_time DESC LIMIT 20",
+        ),
+        return_exceptions=True,
+    )
+    vehicle = (q_vehicle if not isinstance(q_vehicle, Exception) else []) or []
+    if not vehicle:
+        raise HTTPException(404, f"Vehicle {vehicle_id} not found")
+    return {
+        "vehicle": vehicle[0],
+        "notes": q_notes if not isinstance(q_notes, Exception) else [],
+        "recent_rides": q_rides if not isinstance(q_rides, Exception) else [],
+    }
+
+
+# ── Zone lat/lon lookup for telemetry simulation ──────────────────────────
+_ZONE_COORDS = {
+    "LV-STRIP":      (36.1147, -115.1728),
+    "LV-DOWNTOWN":   (36.1699, -115.1398),
+    "LV-ARENA":      (36.1027, -115.1784),
+    "LV-SPHERE":     (36.1202, -115.1661),
+    "LV-CONVENTION": (36.1290, -115.1530),
+    "SF-SOMA":       (37.7785, -122.3950),
+    "SF-MISSION":    (37.7599, -122.4148),
+    "SF-EMBARCADERO":(37.7955, -122.3936),
+    "SF-CASTRO":     (37.7609, -122.4350),
+}
+
+# Per-vehicle persistent random-walk state for smooth telemetry simulation
+_telemetry_state: dict = {}
+
+
+def _get_telemetry(vehicle_id: str, zone: str, status: str, battery_pct: int) -> dict:
+    """Generate realistic simulated telemetry for a vehicle."""
+    now = _time.time()
+    base_lat, base_lon = _ZONE_COORDS.get(zone, (36.1147, -115.1728))
+
+    # Initialize or retrieve persistent state
+    if vehicle_id not in _telemetry_state:
+        _telemetry_state[vehicle_id] = {
+            "lat": base_lat + random.uniform(-0.005, 0.005),
+            "lon": base_lon + random.uniform(-0.005, 0.005),
+            "heading": random.uniform(0, 360),
+            "speed": random.uniform(5, 25) if status == "active" else 0,
+            "motor_temp": random.uniform(95, 130),
+            "cabin_temp": random.uniform(68, 74),
+            "passengers": random.randint(0, 4) if status == "active" else 0,
+            "last_update": now,
+        }
+    st = _telemetry_state[vehicle_id]
+    dt = min(now - st["last_update"], 5.0)  # cap delta to avoid jumps
+
+    # Random walk updates
+    if status in ("active", "en_route"):
+        st["speed"] = max(0, min(45, st["speed"] + random.uniform(-3, 3)))
+        rad = math.radians(st["heading"])
+        st["lat"] += math.cos(rad) * st["speed"] * 0.00001 * dt
+        st["lon"] += math.sin(rad) * st["speed"] * 0.00001 * dt
+        st["heading"] = (st["heading"] + random.uniform(-15, 15)) % 360
+        st["passengers"] = max(0, min(4, st["passengers"]))
+    elif status == "charging":
+        st["speed"] = 0
+        st["passengers"] = 0
+    else:
+        st["speed"] = max(0, st["speed"] - 2 * dt)
+        st["passengers"] = 0
+
+    st["motor_temp"] = max(80, min(180, st["motor_temp"] + random.uniform(-1.5, 1.5)))
+    st["cabin_temp"] = max(60, min(82, st["cabin_temp"] + random.uniform(-0.3, 0.3)))
+    st["last_update"] = now
+
+    lidar_ok = random.random() > 0.02
+    camera_ok = random.random() > 0.02
+    range_miles = battery_pct * 1.2  # ~120 miles at 100%
+
+    return {
+        "vehicle_id": vehicle_id,
+        "timestamp": now,
+        "speed_mph": round(st["speed"], 1),
+        "heading_deg": round(st["heading"], 1),
+        "latitude": round(st["lat"], 6),
+        "longitude": round(st["lon"], 6),
+        "battery_pct": battery_pct,
+        "battery_range_miles": round(range_miles, 1),
+        "motor_temp_f": round(st["motor_temp"], 1),
+        "cabin_temp_f": round(st["cabin_temp"], 1),
+        "passenger_count": st["passengers"],
+        "lidar_status": "nominal" if lidar_ok else "degraded",
+        "camera_status": "nominal" if camera_ok else "degraded",
+        "status": status,
+        "zone": zone,
+    }
+
+
+@app.get("/api/fleet/telemetry/{vehicle_id}")
+async def get_vehicle_telemetry(vehicle_id: str):
+    """Single telemetry snapshot for a vehicle."""
+    safe_id = _safe(vehicle_id)
+    rows = await asyncio.to_thread(
+        run_query,
+        f"SELECT vehicle_id, current_zone, status, battery_pct FROM {_FQ}.vehicles WHERE vehicle_id = '{safe_id}'",
+    )
+    if not rows:
+        raise HTTPException(404, f"Vehicle {vehicle_id} not found")
+    v = rows[0]
+    return _get_telemetry(v["vehicle_id"], v["current_zone"], v["status"], v.get("battery_pct", 50))
+
+
+@app.get("/api/fleet/telemetry/{vehicle_id}/stream")
+async def stream_vehicle_telemetry(vehicle_id: str, request: Request):
+    """SSE stream of simulated telemetry updates every 2 seconds."""
+    safe_id = _safe(vehicle_id)
+    rows = await asyncio.to_thread(
+        run_query,
+        f"SELECT vehicle_id, current_zone, status, battery_pct FROM {_FQ}.vehicles WHERE vehicle_id = '{safe_id}'",
+    )
+    if not rows:
+        raise HTTPException(404, f"Vehicle {vehicle_id} not found")
+    v = rows[0]
+
+    async def _generate():
+        while True:
+            if await request.is_disconnected():
+                break
+            telem = _get_telemetry(v["vehicle_id"], v["current_zone"], v["status"], v.get("battery_pct", 50))
+            yield f"data: {json.dumps(telem)}\n\n"
+            await asyncio.sleep(2)
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
+
+
+@app.get("/api/fleet/events")
+async def get_fleet_events(
+    city: Optional[str] = None,
+    venue: Optional[str] = None,
+    event_type: Optional[str] = None,
+    upcoming_only: bool = False,
+):
+    """Event list with demand predictions."""
+    where = []
+    if city:
+        where.append(f"city = '{_safe(city)}'")
+    if venue:
+        where.append(f"venue = '{_safe(venue)}'")
+    if event_type:
+        where.append(f"event_type = '{_safe(event_type)}'")
+    if upcoming_only:
+        where.append("event_date >= CURRENT_DATE()")
+    clause = " WHERE " + " AND ".join(where) if where else ""
+    return await asyncio.to_thread(
+        run_query,
+        f"SELECT * FROM {_FQ}.events{clause} ORDER BY event_date DESC LIMIT 100",
+    )
+
+
+@app.get("/api/fleet/events/{event_id}")
+async def get_fleet_event(event_id: str):
+    """Event detail with historical ride patterns."""
+    safe_id = _safe(event_id)
+    q_event, q_rides = await asyncio.gather(
+        asyncio.to_thread(run_query, f"SELECT * FROM {_FQ}.events WHERE event_id = '{safe_id}'"),
+        asyncio.to_thread(
+            run_query,
+            f"SELECT pickup_zone, COUNT(*) as ride_count, AVG(wait_time_min) as avg_wait "
+            f"FROM {_FQ}.rides r "
+            f"JOIN {_FQ}.events e ON r.request_time BETWEEN CONCAT(e.event_date, ' ', e.start_time) "
+            f"AND CONCAT(e.event_date, ' ', e.end_time) "
+            f"WHERE e.event_id = '{safe_id}' "
+            f"GROUP BY pickup_zone ORDER BY ride_count DESC",
+        ),
+        return_exceptions=True,
+    )
+    event = (q_event if not isinstance(q_event, Exception) else []) or []
+    if not event:
+        raise HTTPException(404, f"Event {event_id} not found")
+    return {
+        "event": event[0],
+        "ride_patterns": q_rides if not isinstance(q_rides, Exception) else [],
+    }
+
+
+@app.get("/api/fleet/demand")
+async def get_fleet_demand(
+    city: Optional[str] = None,
+    zone: Optional[str] = None,
+    horizon: str = "24h",
+):
+    """Demand forecast data."""
+    where = ["forecast_date >= CURRENT_DATE()"]
+    if city:
+        where.append(f"city = '{_safe(city)}'")
+    if zone:
+        where.append(f"zone_id = '{_safe(zone)}'")
+    hours = {"1h": 1, "4h": 4, "24h": 24}.get(horizon, 24)
+    where.append(f"hour <= {hours}")
+    clause = " WHERE " + " AND ".join(where)
+    return await asyncio.to_thread(
+        run_query,
+        f"SELECT * FROM {_FQ}.demand_forecasts{clause} ORDER BY forecast_date, hour, zone_id",
+    )
+
+
+@app.get("/api/fleet/zones")
+async def get_fleet_zones():
+    """Zone data with current vehicle counts."""
+    q_zones, q_vehicles = await asyncio.gather(
+        asyncio.to_thread(run_query, f"SELECT * FROM {_FQ}.zones ORDER BY zone_id"),
+        asyncio.to_thread(
+            run_query,
+            f"SELECT current_zone, COUNT(*) as vehicle_count, "
+            f"AVG(battery_pct) as avg_battery "
+            f"FROM {_FQ}.vehicles GROUP BY current_zone",
+        ),
+        return_exceptions=True,
+    )
+    zones = q_zones if not isinstance(q_zones, Exception) else []
+    vehicles_by_zone = {}
+    if not isinstance(q_vehicles, Exception):
+        for v in (q_vehicles or []):
+            vehicles_by_zone[v.get("current_zone", "")] = v
+    result = []
+    for z in (zones or []):
+        zid = z.get("zone_id", "")
+        vdata = vehicles_by_zone.get(zid, {})
+        z["current_vehicles"] = vdata.get("vehicle_count", 0)
+        z["avg_battery"] = vdata.get("avg_battery", 0)
+        result.append(z)
+    return result
+
+
+@app.get("/api/fleet/surge-alerts")
+async def list_surge_alerts(
+    status: Optional[str] = None,
+    severity: Optional[str] = None,
+):
+    """List surge alerts from Lakebase."""
+    clauses, params = [], []
+    if status:
+        clauses.append("status = %s")
+        params.append(_safe(status))
+    if severity:
+        clauses.append("severity = %s")
+        params.append(_safe(severity))
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    try:
+        return await asyncio.to_thread(
+            run_pg_query,
+            f"SELECT * FROM surge_alerts{where} ORDER BY created_at DESC LIMIT 50",
+            tuple(params) if params else None,
+        )
+    except Exception as e:
+        log.warning("Surge alerts query failed: %s", e)
+        return []
+
+
+@app.post("/api/fleet/surge-alerts")
+async def create_surge_alert(body: SurgeAlertCreate):
+    """Create a new surge alert."""
+    return await asyncio.to_thread(
+        write_pg,
+        "INSERT INTO surge_alerts (zone_id, city, event_name, predicted_demand_score, current_supply, severity, recommended_action) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        (body.zone_id, body.city, body.event_name, body.predicted_demand_score,
+         body.current_supply, body.severity, body.recommended_action),
+    )
+
+
+@app.patch("/api/fleet/surge-alerts/{alert_id}")
+async def update_surge_alert(alert_id: int, body: dict):
+    """Update surge alert status."""
+    new_status = body.get("status", "")
+    if new_status not in ("acknowledged", "resolved", "dismissed"):
+        raise HTTPException(400, "Status must be acknowledged, resolved, or dismissed")
+    resolved_at = "NOW()" if new_status in ("resolved", "dismissed") else "NULL"
+    result = await asyncio.to_thread(
+        write_pg,
+        f"UPDATE surge_alerts SET status = %s, resolved_at = {resolved_at} WHERE alert_id = %s RETURNING *",
+        (new_status, alert_id),
+    )
+    if not result:
+        raise HTTPException(404, f"Surge alert {alert_id} not found")
+    return result
+
+
+@app.get("/api/fleet/fleet-actions")
+async def list_fleet_actions(
+    status: Optional[str] = None,
+    city: Optional[str] = None,
+):
+    """List fleet actions from Lakebase."""
+    clauses, params = [], []
+    if status:
+        clauses.append("status = %s")
+        params.append(_safe(status))
+    if city:
+        clauses.append("city = %s")
+        params.append(_safe(city))
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    try:
+        return await asyncio.to_thread(
+            run_pg_query,
+            f"SELECT * FROM fleet_actions{where} ORDER BY created_at DESC LIMIT 50",
+            tuple(params) if params else None,
+        )
+    except Exception as e:
+        log.warning("Fleet actions query failed: %s", e)
+        return []
+
+
+@app.post("/api/fleet/fleet-actions")
+async def create_fleet_action(body: FleetActionCreate):
+    """Create a new fleet action."""
+    return await asyncio.to_thread(
+        write_pg,
+        "INSERT INTO fleet_actions (action_type, from_zone, to_zone, vehicle_count, city, reason, priority) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        (body.action_type, body.from_zone, body.to_zone, body.vehicle_count,
+         body.city, body.reason, body.priority),
+    )
+
+
+@app.get("/api/fleet/dispatch-overrides")
+async def list_dispatch_overrides():
+    """List dispatch overrides from Lakebase."""
+    try:
+        return await asyncio.to_thread(
+            run_pg_query,
+            "SELECT * FROM dispatch_overrides ORDER BY created_at DESC LIMIT 50",
+        )
+    except Exception as e:
+        log.warning("Dispatch overrides query failed: %s", e)
+        return []
+
+
+@app.post("/api/fleet/dispatch-overrides")
+async def create_dispatch_override(body: DispatchOverrideCreate):
+    """Create a new dispatch override."""
+    return await asyncio.to_thread(
+        write_pg,
+        "INSERT INTO dispatch_overrides (vehicle_id, from_zone, to_zone, city, reason, override_by) "
+        "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
+        (body.vehicle_id, body.from_zone, body.to_zone, body.city, body.reason, body.override_by),
+    )
+
+
+@app.get("/api/fleet/filters")
+async def get_fleet_filters():
+    """Filter dropdown values for the fleet UI."""
+    q_cities, q_zones, q_statuses, q_venues, q_event_types = await asyncio.gather(
+        asyncio.to_thread(run_query, f"SELECT DISTINCT city FROM {_FQ}.vehicles ORDER BY city"),
+        asyncio.to_thread(run_query, f"SELECT DISTINCT zone_id, city FROM {_FQ}.zones ORDER BY zone_id"),
+        asyncio.to_thread(run_query, f"SELECT DISTINCT status FROM {_FQ}.vehicles ORDER BY status"),
+        asyncio.to_thread(run_query, f"SELECT DISTINCT venue FROM {_FQ}.events ORDER BY venue"),
+        asyncio.to_thread(run_query, f"SELECT DISTINCT event_type FROM {_FQ}.events ORDER BY event_type"),
+        return_exceptions=True,
+    )
+
+    def _extract(r, key):
+        if isinstance(r, Exception):
+            return []
+        return [row.get(key, "") for row in (r or []) if row.get(key)]
+
+    return {
+        "cities": _extract(q_cities, "city"),
+        "zones": _extract(q_zones, "zone_id"),
+        "statuses": _extract(q_statuses, "status"),
+        "venues": _extract(q_venues, "venue"),
+        "event_types": _extract(q_event_types, "event_type"),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Zoox Fleet Intelligence — Additional Domain Routes
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class SurgeAlertUpdate(BaseModel):
+    status: Optional[str] = None  # open, acknowledged, resolved, dismissed
+
+
+class FleetActionUpdate(BaseModel):
+    status: Optional[str] = None  # pending, approved, executed, dismissed, failed
+
+
+class WorkflowUpdate(BaseModel):
+    status: Optional[str] = None  # approved, dismissed
+
+
+# ─── Rides ───────────────────────────────────────────────────────────────
+
+@app.get("/api/fleet/rides")
+async def get_fleet_rides(
+    city: Optional[str] = None,
+    pickup_zone: Optional[str] = None,
+    ride_status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 25,
+):
+    """Paginated ride list with filters."""
+    where = []
+    if city:
+        where.append(f"city = '{_safe(city)}'")
+    if pickup_zone:
+        where.append(f"pickup_zone = '{_safe(pickup_zone)}'")
+    if ride_status:
+        where.append(f"ride_status = '{_safe(ride_status)}'")
+    if date_from:
+        where.append(f"request_time >= '{_safe(date_from)}'")
+    if date_to:
+        where.append(f"request_time <= '{_safe(date_to)} 23:59:59'")
+    clause = "WHERE " + " AND ".join(where) if where else ""
+    offset = (page - 1) * per_page
+
+    q_data, q_count = await asyncio.gather(
+        asyncio.to_thread(run_query, f"""
+            SELECT * FROM {_FQ}.rides
+            {clause}
+            ORDER BY request_time DESC
+            LIMIT {per_page} OFFSET {offset}
+        """),
+        asyncio.to_thread(run_query, f"""
+            SELECT COUNT(*) as total FROM {_FQ}.rides {clause}
+        """),
+    )
+    return {
+        "rides": q_data,
+        "total": q_count[0]["total"] if q_count else 0,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+# ─── Upcoming Events ────────────────────────────────────────────────────
+
+@app.get("/api/fleet/events/upcoming")
+async def get_upcoming_events():
+    """Events in the next 7 days, sorted by date."""
+    return await asyncio.to_thread(run_query, f"""
+        SELECT * FROM {_FQ}.events
+        WHERE event_date >= CURRENT_DATE()
+          AND event_date <= DATE_ADD(CURRENT_DATE(), 7)
+        ORDER BY event_date ASC, start_time ASC
+    """)
+
+
+# ─── Morning Briefing (Data Endpoint) ────────────────────────────────────
+
+@app.get("/api/fleet/morning-briefing")
+async def get_morning_briefing():
+    """Aggregated data for the AI morning briefing panel."""
+    (q_events, q_alerts, q_fleet, q_yesterday, q_actions) = await asyncio.gather(
+        asyncio.to_thread(run_query, f"""
+            SELECT event_name, venue, city, event_date, start_time,
+                   expected_attendance, demand_multiplier
+            FROM {_FQ}.events
+            WHERE event_date >= CURRENT_DATE()
+              AND event_date <= DATE_ADD(CURRENT_DATE(), 1)
+            ORDER BY event_date, start_time
+        """),
+        asyncio.to_thread(run_pg_query,
+            "SELECT * FROM surge_alerts WHERE status IN ('open', 'acknowledged') ORDER BY created_at DESC LIMIT 10"),
+        asyncio.to_thread(run_query, f"""
+            SELECT status, COUNT(*) as cnt FROM {_FQ}.vehicles GROUP BY status
+        """),
+        asyncio.to_thread(run_query, f"""
+            SELECT COUNT(*) as total_rides,
+                   ROUND(AVG(wait_time_min), 1) as avg_wait,
+                   ROUND(SUM(fare_usd), 2) as total_revenue
+            FROM {_FQ}.rides
+            WHERE request_time >= DATE_SUB(CURRENT_DATE(), 1)
+              AND request_time < DATE_FORMAT(CURRENT_DATE(), 'yyyy-MM-dd')
+              AND ride_status = 'completed'
+        """),
+        asyncio.to_thread(run_pg_query,
+            "SELECT COUNT(*) as cnt FROM fleet_actions WHERE status = 'pending'"),
+        return_exceptions=True,
+    )
+
+    def _s(r, default=None):
+        return default if isinstance(r, Exception) else (r if r is not None else default)
+
+    fleet_status = {}
+    for row in (_s(q_fleet, []) or []):
+        fleet_status[row.get("status", "")] = row.get("cnt", 0)
+
+    yesterday = (_s(q_yesterday, [{}]) or [{}])[0]
+
+    return {
+        "todays_events": _s(q_events, []),
+        "open_alerts": _s(q_alerts, []),
+        "fleet_status": fleet_status,
+        "yesterday": {
+            "total_rides": yesterday.get("total_rides", 0),
+            "avg_wait_min": yesterday.get("avg_wait", 0),
+            "total_revenue": yesterday.get("total_revenue", 0),
+        },
+        "pending_actions": (_s(q_actions, [{}]) or [{}])[0].get("cnt", 0),
+    }
+
+
+# ─── Notes CRUD ──────────────────────────────────────────────────────────
+
+class NoteCreate(BaseModel):
+    entity_type: str
+    entity_id: str
+    note_text: str
+    author: str = "operator"
+
+
+@app.get("/api/notes/{entity_type}/{entity_id}")
+async def get_notes(entity_type: str, entity_id: str):
+    """Get all notes for an entity."""
+    return await asyncio.to_thread(
+        run_pg_query,
+        "SELECT * FROM notes WHERE entity_type = %s AND entity_id = %s ORDER BY created_at DESC",
+        (_safe(entity_type), _safe(entity_id)),
+    )
+
+
+@app.post("/api/notes")
+async def add_note(body: NoteCreate):
+    """Add a note to any entity."""
+    return await asyncio.to_thread(
+        write_pg,
+        "INSERT INTO notes (entity_type, entity_id, note_text, author) VALUES (%s, %s, %s, %s) RETURNING *",
+        (body.entity_type, body.entity_id, body.note_text, body.author),
+    )
+
+
+# ─── Workflow Side-Effects ────────────────────────────────────────────────
+
+async def _execute_workflow_side_effects(workflow: dict, new_status: str):
+    """Execute side effects when a workflow is approved/dismissed."""
+    wtype = workflow.get("workflow_type", "")
+
+    if new_status == "approved":
+        if wtype == "rebalancing_request":
+            try:
+                await asyncio.to_thread(
+                    write_pg,
+                    "INSERT INTO fleet_actions (action_type, from_zone, to_zone, vehicle_count, city, reason, priority, status) "
+                    "VALUES ('rebalance', %s, %s, %s, %s, %s, %s, 'approved')",
+                    (
+                        workflow.get("entity_id", "unknown"),
+                        workflow.get("entity_id", "unknown"),
+                        1,
+                        "Las Vegas",
+                        "Approved from workflow #" + str(workflow.get("workflow_id", "")),
+                        workflow.get("severity", "medium"),
+                    ),
+                )
+            except Exception as e:
+                log.warning("Workflow side-effect failed: %s", e)
+
+        elif wtype == "surge_response":
+            entity_id = workflow.get("entity_id", "")
+            if entity_id:
+                try:
+                    await asyncio.to_thread(
+                        write_pg,
+                        "UPDATE surge_alerts SET status = 'resolved', resolved_at = NOW() WHERE alert_id = %s",
+                        (int(entity_id),),
+                    )
+                except Exception as e:
+                    log.warning("Workflow side-effect failed: %s", e)
+
+        elif wtype == "dispatch_override":
+            entity_id = workflow.get("entity_id", "")
+            if entity_id:
+                try:
+                    await asyncio.to_thread(
+                        write_pg,
+                        "UPDATE dispatch_overrides SET status = 'executed' WHERE override_id = %s",
+                        (int(entity_id),),
+                    )
+                except Exception as e:
+                    log.warning("Workflow side-effect failed: %s", e)
 
 
 # ─── Frontend Serving ─────────────────────────────────────────────────────

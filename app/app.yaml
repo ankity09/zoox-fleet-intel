@@ -8,33 +8,33 @@ command:
 
 env:
   - name: DATABRICKS_WAREHOUSE_ID
-    value: "TODO"
+    value: "55d3a94c50a43f96"
   - name: CATALOG
-    value: "TODO"
+    value: "serverless_simplot_v1_catalog"
   - name: SCHEMA
-    value: "TODO"
+    value: "zoox_fleet_intel"
   - name: MAS_TILE_ID
-    value: "TODO"
+    value: "4d16197c"
   - name: GENIE_SPACE_ID
-    value: "TODO"
+    value: "01f1135a9ef212b08959b5eb60aca896"
   - name: KA_TILE_ID
-    value: "TODO"
+    value: ""
   - name: DEMO_NAME
-    value: "TODO"
+    value: "Zoox Fleet Intelligence Platform"
   - name: DEMO_CUSTOMER
-    value: "TODO"
+    value: "Zoox"
 
 resources:
   - name: sql-warehouse
     sql_warehouse:
-      id: "TODO"                          # SQL warehouse ID from workspace
+      id: "55d3a94c50a43f96"
       permission: CAN_USE
   - name: mas-endpoint
     serving_endpoint:
-      name: "mas-TODO-endpoint"           # Format: mas-{first 8 chars of MAS tile_id}-endpoint
+      name: "mas-4d16197c-endpoint"
       permission: CAN_QUERY
   - name: database
     database:
-      instance_name: "TODO"               # Lakebase instance name (hyphens, NOT underscores)
-      database_name: "TODO"               # Lakebase database name
+      instance_name: "ai-builder"
+      database_name: "zoox_fleet_intel"
       permission: CAN_CONNECT_AND_CREATE

@@ -1,5 +1,5 @@
 -- Databricks notebook source
--- Vibe Demo Accelerator — Schema Setup
+-- Zoox Fleet Intelligence — Schema Setup
 -- Run this first to create the catalog schema.
 --
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -21,20 +21,19 @@
 -- COMMAND ----------
 
 -- IMPORTANT: Statement 1 of 4 — Set catalog context
--- TODO: Replace with your catalog name
-USE CATALOG TODO_CATALOG;
+USE CATALOG serverless_simplot_v1_catalog;
 
 -- COMMAND ----------
 
 -- IMPORTANT: Statement 2 of 4 — Create schema
--- TODO: Replace with your schema name and add a meaningful comment
-CREATE SCHEMA IF NOT EXISTS TODO_SCHEMA
-COMMENT 'TODO: Describe your demo domain here';
+-- Zoox Fleet Intelligence — autonomous ride-hail fleet operations
+CREATE SCHEMA IF NOT EXISTS zoox_fleet_intel
+COMMENT 'Zoox Fleet Intelligence — autonomous ride-hail fleet operations across Las Vegas and San Francisco';
 
 -- COMMAND ----------
 
 -- IMPORTANT: Statement 3 of 4 — Set schema context
-USE SCHEMA TODO_SCHEMA;
+USE SCHEMA zoox_fleet_intel;
 
 -- COMMAND ----------
 

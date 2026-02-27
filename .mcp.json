@@ -3,13 +3,13 @@
   "$instructions": "Update the profile to match your Databricks CLI profile name",
   "mcpServers": {
     "databricks": {
-      "command": "~/ai-dev-kit/databricks-mcp-server/.venv/bin/python",
+      "command": "/Users/ankit.yadav/ai-dev-kit/databricks-mcp-server/.venv/bin/python",
       "args": [
-        "~/ai-dev-kit/databricks-mcp-server/run_server.py"
+        "/Users/ankit.yadav/ai-dev-kit/databricks-mcp-server/run_server.py"
       ],
       "type": "stdio",
       "env": {
-        "DATABRICKS_CONFIG_PROFILE": "TODO"
+        "DATABRICKS_CONFIG_PROFILE": "simplot-v1"
       }
     }
   }

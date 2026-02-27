@@ -3,62 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Demo App</title>
+<title>Zoox Fleet Intelligence</title>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.6.1/dist/panzoom.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 <style>
 /* ═══════════════════════════════════════════════════════════════════════════
-   CSS VARIABLES — Customize these to rebrand the entire app
-   TODO(vibe): Ask the user what color scheme / brand they want, then update these.
+   CSS VARIABLES — Zoox Fleet Intelligence (zoox.com light theme)
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --primary: #1a2332;         /* Main dark — sidebar, headers */
-  --primary-light: #243447;
-  --primary-dark: #111922;
-  --accent: #f59e0b;          /* CTA / highlight color */
-  --accent-hover: #d97706;
-  --green: #10b981;
-  --green-bg: #d1fae5;
-  --red: #ef4444;
-  --red-bg: #fee2e2;
-  --yellow-bg: #fef3c7;
-  --blue: #3b82f6;
-  --blue-bg: #dbeafe;
+  --primary: #0d1212;         /* Zoox near-black — text, dark panels, nav */
+  --primary-light: #34484a;   /* Zoox deep teal — secondary dark */
+  --primary-dark: #080e0e;
+  --accent: #64d5b3;          /* Zoox mint green — primary CTA & highlights */
+  --accent-hover: #4fc9a5;    /* Slightly darker mint for hover */
+  --accent-subtle: rgba(100,213,179,.10); /* Faint mint for light bg tint */
+  --green: #16a34a;           /* True green for success states */
+  --green-bg: rgba(22,163,74,.08);
+  --red: #dc2626;
+  --red-bg: rgba(220,38,38,.08);
+  --yellow: #d97706;
+  --yellow-bg: rgba(217,119,6,.08);
+  --blue: #3860be;            /* Zoox link blue */
+  --blue-bg: rgba(56,96,190,.08);
   --white: #ffffff;
-  --text: #1e293b;
-  --text-muted: #64748b;
-  --steel: #64748b;
-  --steel-light: #94a3b8;
-  --steel-bg: #f1f5f9;
-  --border: #e2e8f0;
-  --radius: 8px;
-  --shadow: 0 1px 3px rgba(0,0,0,.1);
-  --shadow-lg: 0 4px 12px rgba(0,0,0,.15);
+  --text: #0d1212;            /* Near-black text on light backgrounds */
+  --text-muted: rgba(13,18,18,.55); /* Zoox muted text — 55% opacity */
+  --steel: #5b8279;           /* Zoox muted teal */
+  --steel-light: #9aada6;
+  --steel-bg: #f7faf9;        /* Very light sage — main page background */
+  --surface: #d3e4df;         /* Zoox light sage — alternate section bg */
+  --border: rgba(91,130,121,.15); /* Zoox divider — muted teal at 15% */
+  --card-bg: #ffffff;         /* White cards on sage background */
+  --radius: 16px;             /* Zoox standard radius */
+  --shadow: 0 1px 3px rgba(13,18,18,.06);
+  --shadow-lg: 0 4px 16px rgba(13,18,18,.10);
   --transition-fast: .15s ease;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--steel-bg); color: var(--text); display:flex; height:100vh; overflow:hidden; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--steel-bg); color: var(--text); display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LAYOUT — Vibe replaces this section to match the user's preferred layout.
-   Current: sidebar + topbar (common starting point). Alternatives:
-   - Top nav only (no sidebar)
-   - Dashboard-first with floating chat
-   - Full-screen dashboard with tabs
+   LAYOUT — Zoox Top Navigation Bar
    ═══════════════════════════════════════════════════════════════════════════ */
-#sidebar { width: 240px; background: var(--primary); color: #fff; display:flex; flex-direction:column; flex-shrink:0; }
-#sidebar .logo { padding: 20px; border-bottom: 1px solid var(--primary-light); }
-#sidebar .logo h1 { font-size: 16px; font-weight: 700; letter-spacing: .5px; }
-#sidebar .logo span { font-size: 11px; color: var(--steel-light); display:block; margin-top:4px; }
-#sidebar nav { flex:1; padding: 12px 0; }
-#sidebar nav a { display:flex; align-items:center; gap:10px; padding: 10px 20px; color: var(--steel-light); text-decoration:none; font-size:13px; transition: all .15s; border-left: 3px solid transparent; }
-#sidebar nav a:hover { background: var(--primary-light); color:#fff; }
-#sidebar nav a.active { background: var(--primary-light); color:#fff; border-left-color: var(--accent); }
-#sidebar nav a .icon { width:18px; text-align:center; font-size:15px; }
-#sidebar .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--primary-light); font-size: 10px; color: var(--steel); }
-#main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-#topbar { background:#fff; border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; }
-#topbar h2 { font-size:18px; font-weight:600; }
+#topnav { background: var(--primary); border-bottom: none; padding: 0 24px; display:flex; align-items:center; height:56px; flex-shrink:0; }
+#topnav .nav-brand { display:flex; align-items:center; gap:10px; margin-right:32px; }
+#topnav .nav-brand h1 { font-size:15px; font-weight:800; color:#fff; letter-spacing:.5px; white-space:nowrap; }
+#topnav .nav-brand .nav-logo { width:30px; height:30px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; color:var(--primary); }
+#topnav .nav-links { display:flex; gap:2px; flex:1; }
+#topnav .nav-links a { display:flex; align-items:center; gap:6px; padding:8px 14px; color:rgba(255,255,255,.6); text-decoration:none; font-size:12px; font-weight:600; border-radius:8px; transition:all .15s; white-space:nowrap; text-transform:uppercase; letter-spacing:.3px; }
+#topnav .nav-links a:hover { background:rgba(255,255,255,.08); color:#fff; }
+#topnav .nav-links a.active { background:rgba(100,213,179,.15); color:var(--accent); }
+#topnav .nav-links a .icon { display:flex; align-items:center; }
+#topnav .nav-status { margin-left:auto; display:flex; align-items:center; gap:8px; }
 #content { flex:1; overflow-y:auto; padding:24px; }
 .page { display:none; transition:opacity .2s ease; }
 .page.active { display:block; }
@@ -71,18 +75,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 /* ─── Cards & KPIs ────────────────────────────────────────────────── */
 .kpi-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:24px; }
-.kpi-card { background:#fff; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border-top:3px solid var(--primary); transition:opacity .3s ease, transform .3s ease; }
+.kpi-card { background:var(--card-bg); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border-top:3px solid var(--border); transition:opacity .3s ease, transform .3s ease; }
 .kpi-card.accent { border-top-color: var(--accent); }
 .kpi-card.green { border-top-color: var(--green); }
 .kpi-card.red { border-top-color: var(--red); }
 .kpi-card.blue { border-top-color: var(--blue); }
-.kpi-card .kpi-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; }
-.kpi-card .kpi-value { font-size:28px; font-weight:700; margin:6px 0 2px; }
+.kpi-card .kpi-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; font-weight:500; }
+.kpi-card .kpi-value { font-size:28px; font-weight:700; margin:6px 0 2px; color:var(--primary); }
 .kpi-card .kpi-sub { font-size:11px; color:var(--text-muted); }
 .kpi-animate { opacity:0; transform:translateY(8px); }
 .kpi-animate.kpi-visible { opacity:1; transform:translateY(0); }
-.card { background:#fff; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:20px; }
-.card h3 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--primary); }
+.card { background:var(--card-bg); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:20px; }
+.card h3 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--primary-light); }
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
 .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
 @media(max-width:900px) { .grid-2,.grid-3 { grid-template-columns:1fr; } }
@@ -90,53 +94,53 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ─── Tables ──────────────────────────────────────────────────────── */
 .tbl-wrap { overflow-x:auto; }
 table { width:100%; border-collapse:collapse; font-size:13px; }
-th { background:var(--steel-bg); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.5px; padding:10px 12px; text-align:left; position:sticky; top:0; }
+th { background:var(--surface); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.5px; padding:10px 12px; text-align:left; position:sticky; top:0; }
 td { padding:10px 12px; border-bottom:1px solid var(--border); }
-tr:hover td { background:#f8fafc; }
+tr:hover td { background:var(--accent-subtle); }
 .clickable-row { cursor:pointer; }
-.clickable-row:hover td { background:rgba(59,130,246,.06); transition:background var(--transition-fast); }
+.clickable-row:hover td { background:rgba(100,213,179,.08); transition:background var(--transition-fast); }
 
 /* ─── Badges ──────────────────────────────────────────────────────── */
 .badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; }
 .badge-critical { background:var(--red); color:#fff; }
-.badge-high { background:var(--red-bg); color:#991b1b; }
+.badge-high { background:var(--red-bg); color:#b91c1c; }
 .badge-medium { background:var(--yellow-bg); color:#92400e; }
-.badge-low { background:var(--green-bg); color:#065f46; }
-.badge-open { background:var(--accent); color:#fff; }
-.badge-in_progress { background:var(--blue-bg); color:#1d4ed8; }
+.badge-low { background:var(--green-bg); color:#15803d; }
+.badge-open { background:var(--accent); color:var(--primary); font-weight:700; }
+.badge-in_progress { background:var(--blue-bg); color:#1e40af; }
 .badge-pending_approval { background:var(--yellow-bg); color:#92400e; }
-.badge-approved { background:var(--green-bg); color:#065f46; }
-.badge-resolved { background:var(--green-bg); color:#065f46; }
-.badge-dismissed { background:#f3f4f6; color:#6b7280; }
-.badge-failed { background:var(--red-bg); color:#991b1b; }
+.badge-approved { background:var(--green-bg); color:#15803d; }
+.badge-resolved { background:var(--green-bg); color:#15803d; }
+.badge-dismissed { background:rgba(91,130,121,.08); color:var(--text-muted); }
+.badge-failed { background:var(--red-bg); color:#b91c1c; }
 
 /* ─── Buttons ─────────────────────────────────────────────────────── */
 .filter-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
-.filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:#fff; }
-.btn { padding:8px 16px; border:none; border-radius:var(--radius); font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; }
-.btn-primary { background:var(--accent); color:#fff; }
+.filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:#fff; color:var(--text); }
+.btn { padding:8px 16px; border:none; border-radius:var(--radius); font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; text-transform:uppercase; letter-spacing:.3px; }
+.btn-primary { background:var(--accent); color:var(--primary); }
 .btn-primary:hover { background:var(--accent-hover); }
-.btn-secondary { background:var(--primary); color:#fff; }
-.btn-secondary:hover { background:var(--primary-light); }
-.btn-sm { padding:5px 10px; font-size:12px; }
+.btn-secondary { background:var(--primary-light); color:#fff; }
+.btn-secondary:hover { background:var(--primary); }
+.btn-sm { padding:5px 10px; font-size:11px; }
 .btn-blue { background:var(--blue); color:#fff; }
-.btn-blue:hover { background:#2563eb; }
-.btn-green { background:var(--green); color:#fff; }
-.btn-green:hover { background:#059669; }
-.btn-steel { background:var(--steel); color:#fff; }
-.btn-steel:hover { background:var(--primary-light); }
+.btn-blue:hover { background:#2c4da3; }
+.btn-green { background:var(--accent); color:var(--primary); }
+.btn-green:hover { background:var(--accent-hover); }
+.btn-steel { background:var(--surface); color:var(--primary-light); border:1px solid var(--border); }
+.btn-steel:hover { background:var(--border); }
 
 /* ─── Pills ───────────────────────────────────────────────────────── */
 .pill { display:inline-flex; align-items:center; gap:4px; font-size:10px; padding:2px 8px; border-radius:10px; font-weight:500; }
-.pill-blue { background:var(--blue-bg); color:var(--blue); }
-.pill-green { background:var(--green-bg); color:#065f46; }
+.pill-blue { background:var(--blue-bg); color:#1e40af; }
+.pill-green { background:var(--green-bg); color:#15803d; }
 .pill-live { position:relative; padding-left:16px; }
 .pill-live::before { content:''; position:absolute; left:6px; top:50%; transform:translateY(-50%); width:6px; height:6px; border-radius:50%; background:var(--green); animation:agentPulse 2s ease-in-out infinite; }
 
 /* ─── Detail Panel (slide-out) ────────────────────────────────────── */
-#detail-panel { position:fixed; top:0; right:-500px; width:480px; height:100vh; background:#fff; box-shadow:-4px 0 20px rgba(0,0,0,.15); z-index:100; transition:right .3s; display:flex; flex-direction:column; }
+#detail-panel { position:fixed; top:0; right:-500px; width:480px; height:100vh; background:#fff; box-shadow:-4px 0 20px rgba(13,18,18,.12); z-index:100; transition:right .3s; display:flex; flex-direction:column; }
 #detail-panel.open { right:0; }
-#detail-panel .dp-header { padding:16px 20px; background:var(--primary); color:#fff; display:flex; justify-content:space-between; align-items:center; }
+#detail-panel .dp-header { padding:16px 20px; background:var(--primary-light); color:#fff; display:flex; justify-content:space-between; align-items:center; }
 #detail-panel .dp-header h3 { font-size:15px; }
 #detail-panel .dp-close { background:none; border:none; color:#fff; font-size:20px; cursor:pointer; }
 #detail-panel .dp-body { flex:1; overflow-y:auto; padding:20px; }
@@ -149,17 +153,17 @@ tr:hover td { background:#f8fafc; }
    ═══════════════════════════════════════════════════════════════════════════ */
 #chat-messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
 .chat-msg { max-width:80%; padding:12px 16px; border-radius:12px; font-size:13px; line-height:1.5; }
-.chat-msg.user { align-self:flex-end; background:var(--primary); color:#fff; border-bottom-right-radius:4px; }
+.chat-msg.user { align-self:flex-end; background:var(--primary-light); color:#fff; border-bottom-right-radius:4px; }
 .chat-msg.assistant { align-self:flex-start; background:#fff; border:1px solid var(--border); border-bottom-left-radius:4px; }
 .chat-steps { font-size:11px; color:var(--text-muted); margin-bottom:6px; display:flex; flex-direction:column; gap:4px; }
 .chat-step { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:3px 0; }
 .chat-step .step-icon { width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; }
-.chat-step .step-icon.thinking { background:#e0e7ff; color:#4f46e5; }
-.chat-step .step-icon.agent { background:#dcfce7; color:#16a34a; }
-.chat-step .step-icon.data { background:#fef3c7; color:#d97706; }
-.chat-step .step-icon.done { background:#dcfce7; color:#16a34a; }
+.chat-step .step-icon.thinking { background:var(--blue-bg); color:#1e40af; }
+.chat-step .step-icon.agent { background:var(--green-bg); color:#15803d; }
+.chat-step .step-icon.data { background:var(--yellow-bg); color:#92400e; }
+.chat-step .step-icon.done { background:var(--green-bg); color:#15803d; }
 .chat-step .step-label { opacity:.85; }
-.chat-step .step-preview { width:100%; margin:2px 0 2px 22px; font-size:10px; color:var(--text-muted); background:#f8f9fa; border-radius:4px; padding:4px 8px; max-height:56px; overflow:hidden; line-height:1.4; border-left:2px solid var(--accent); opacity:.8; }
+.chat-step .step-preview { width:100%; margin:2px 0 2px 22px; font-size:10px; color:var(--text-muted); background:var(--steel-bg); border-radius:4px; padding:4px 8px; max-height:56px; overflow:hidden; line-height:1.4; border-left:2px solid var(--accent); opacity:.8; }
 .chat-step .step-preview code { font-size:10px; background:none; padding:0; }
 .chat-step.collapsed-counter { cursor:pointer; opacity:.7; }
 .chat-step.collapsed-counter:hover { opacity:1; }
@@ -180,7 +184,7 @@ tr:hover td { background:#f8fafc; }
 .thinking-body { display:none; margin-top:4px; font-size:12px; color:var(--text-muted,#6b7280); line-height:1.5; white-space:pre-line; }
 .thinking-block.expanded .thinking-body { display:block; }
 #chat-input-area { padding:16px 20px; border-top:1px solid var(--border); display:flex; gap:8px; background:#fff; align-items:center; }
-#chat-input { flex:1; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; outline:none; }
+#chat-input { flex:1; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; outline:none; background:var(--steel-bg); color:var(--text); }
 #chat-input:focus { border-color:var(--accent); }
 .auto-approve-toggle { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted); white-space:nowrap; cursor:pointer; user-select:none; }
 .auto-approve-toggle input[type="checkbox"] { display:none; }
@@ -188,16 +192,16 @@ tr:hover td { background:#f8fafc; }
 .auto-approve-toggle input:checked + .toggle-track { background:var(--accent); }
 .auto-approve-toggle .toggle-track::after { content:''; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#fff; transition:transform .2s; }
 .auto-approve-toggle input:checked + .toggle-track::after { transform:translateX(12px); }
-.chat-toolbar { display:flex; align-items:center; gap:6px; padding:6px 20px; border-top:1px solid var(--border); background:#f8fafc; }
-.chat-toolbar .chat-tb-btn { display:none; align-items:center; gap:4px; padding:4px 10px; border:1px solid var(--border); border-radius:var(--radius); background:#fff; font-size:11px; color:var(--text-muted); cursor:pointer; transition:all .15s; }
+.chat-toolbar { display:flex; align-items:center; gap:6px; padding:6px 20px; border-top:1px solid var(--border); background:var(--surface); }
+.chat-toolbar .chat-tb-btn { display:none; align-items:center; gap:4px; padding:4px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--card-bg); font-size:11px; color:var(--text-muted); cursor:pointer; transition:all .15s; }
 .chat-toolbar .chat-tb-btn:hover { border-color:var(--accent); color:var(--text); }
 .chat-toolbar .chat-tb-btn.visible { display:inline-flex; }
 .chat-toolbar .chat-tb-btn.stop { border-color:#ef4444; color:#ef4444; }
-.chat-toolbar .chat-tb-btn.stop:hover { background:#fef2f2; }
+.chat-toolbar .chat-tb-btn.stop:hover { background:var(--red-bg); }
 .suggested-prompts { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
-.suggested-prompts button { background:#fff; border:1px solid var(--border); border-radius:16px; padding:6px 12px; font-size:11px; cursor:pointer; color:var(--text-muted); transition:all .15s; }
-.suggested-prompts button:hover { border-color:var(--accent); color:var(--text); }
-.chat-action-card { background:var(--steel-bg); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-top:8px; }
+.suggested-prompts button { background:#fff; border:1px solid var(--border); border-radius:20px; padding:6px 14px; font-size:11px; cursor:pointer; color:var(--text-muted); transition:all .15s; }
+.suggested-prompts button:hover { border-color:var(--accent); color:var(--primary-light); background:var(--accent-subtle); }
+.chat-action-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-top:8px; }
 .chat-action-card .ac-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .chat-action-card .ac-icon { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
 .chat-action-card .ac-title { font-size:12px; font-weight:600; color:var(--text); }
@@ -206,10 +210,10 @@ tr:hover td { background:#f8fafc; }
 .chat-action-card .ac-details strong { color:var(--text); font-weight:500; }
 .chat-action-card .ac-buttons { display:flex; gap:6px; }
 .chat-action-card .ac-btn { padding:5px 12px; border-radius:5px; font-size:11px; font-weight:500; border:none; cursor:pointer; transition:all .15s; }
-.chat-action-card .ac-btn.approve { background:var(--green); color:#fff; }
-.chat-action-card .ac-btn.approve:hover { background:#059669; }
-.chat-action-card .ac-btn.escalate { background:var(--accent); color:#fff; }
-.chat-action-card .ac-btn.escalate:hover { background:var(--accent-hover); }
+.chat-action-card .ac-btn.approve { background:var(--accent); color:var(--primary); }
+.chat-action-card .ac-btn.approve:hover { background:var(--accent-hover); }
+.chat-action-card .ac-btn.escalate { background:var(--primary-light); color:#fff; }
+.chat-action-card .ac-btn.escalate:hover { background:var(--primary); }
 .chat-action-card .ac-btn.dismiss { background:#fff; color:var(--text-muted); border:1px solid var(--border); }
 .chat-action-card .ac-btn.dismiss:hover { background:var(--red-bg); color:var(--red); border-color:var(--red); }
 .chat-action-card .ac-btn:disabled { opacity:.5; cursor:default; }
@@ -219,47 +223,47 @@ tr:hover td { background:#f8fafc; }
 .chat-action-card.resolved .ac-result.approved { color:var(--green); }
 .chat-action-card.resolved .ac-result.dismissed { color:var(--text-muted); }
 /* ─── MCP Approval Card ─── */
-.mcp-approval-card { background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border:1px solid var(--accent); border-radius:var(--radius); padding:14px 16px; margin-top:10px; }
+.mcp-approval-card { background:linear-gradient(135deg, var(--surface) 0%, #c8ddd7 100%); border:1px solid var(--accent); border-radius:var(--radius); padding:14px 16px; margin-top:10px; }
 .mcp-approval-header { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--accent); margin-bottom:10px; }
 .mcp-approval-icon { font-size:16px; }
 .mcp-approval-tools { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
-.mcp-tool-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(255,255,255,0.05); border-radius:6px; flex-wrap:wrap; }
+.mcp-tool-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(13,18,18,.04); border-radius:6px; flex-wrap:wrap; }
 .mcp-tool-icon { font-size:14px; }
-.mcp-tool-name { font-size:12px; font-weight:600; color:#e2e8f0; font-family:monospace; }
+.mcp-tool-name { font-size:12px; font-weight:600; color:var(--primary); font-family:monospace; }
 .mcp-tool-server { font-size:11px; color:var(--text-muted); }
-.mcp-args { width:100%; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.08); }
+.mcp-args { width:100%; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:4px; padding-top:4px; border-top:1px solid var(--border); }
 .mcp-arg { font-size:10px; color:var(--text-muted); }
-.mcp-arg strong { color:var(--steel-light); }
+.mcp-arg strong { color:var(--primary-light); }
 .mcp-approval-buttons { display:flex; gap:8px; }
 .mcp-btn { padding:6px 16px; border-radius:6px; font-size:12px; font-weight:600; border:none; cursor:pointer; transition:all .15s; }
-.mcp-btn.approve { background:var(--green); color:#fff; }
-.mcp-btn.approve:hover { background:#059669; }
+.mcp-btn.approve { background:var(--accent); color:var(--primary); }
+.mcp-btn.approve:hover { background:var(--accent-hover); }
 .mcp-btn.deny { background:transparent; color:var(--text-muted); border:1px solid var(--border); }
 .mcp-btn.deny:hover { background:var(--red-bg); color:var(--red); border-color:var(--red); }
 .mcp-btn:disabled { opacity:.5; cursor:default; pointer-events:none; }
 .mcp-btn.approved { background:var(--green); opacity:1; }
 .mcp-btn.denied { background:var(--red); color:#fff; opacity:1; }
 .chat-followups { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-.chat-followups button { background:#fff; border:1px solid var(--blue); color:var(--blue); border-radius:14px; padding:5px 12px; font-size:11px; cursor:pointer; transition:all .15s; }
-.chat-followups button:hover { background:var(--blue); color:#fff; }
+.chat-followups button { background:#fff; border:1px solid var(--accent); color:var(--primary-light); border-radius:20px; padding:5px 12px; font-size:11px; cursor:pointer; transition:all .15s; }
+.chat-followups button:hover { background:var(--accent); color:var(--primary); }
 .typing-indicator { display:inline-flex; gap:4px; padding:8px 12px; align-items:center; }
 .typing-indicator span { width:6px; height:6px; border-radius:50%; background:var(--steel-light); animation:typing-bounce 1.4s ease-in-out infinite; }
 .typing-indicator span:nth-child(2) { animation-delay:.2s; }
 .typing-indicator span:nth-child(3) { animation-delay:.4s; }
 @keyframes typing-bounce { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-6px); } }
-.chat-welcome { background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%); color:#fff; border-radius:12px; padding:20px 24px; margin:12px 0; }
-.chat-welcome-avatar { width:40px; height:40px; border-radius:10px; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff; flex-shrink:0; }
+.chat-welcome { background:linear-gradient(135deg,var(--primary-light) 0%,#34484a 100%); color:#fff; border-radius:16px; padding:20px 24px; margin:12px 0; }
+.chat-welcome-avatar { width:40px; height:40px; border-radius:12px; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:var(--primary); flex-shrink:0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    STARTER: Agent Workflows — Cards, flow diagram, inline AI modal
    ═══════════════════════════════════════════════════════════════════════════ */
-.agent-status-bar { background:var(--primary); color:#fff; border-radius:var(--radius); padding:14px 20px; display:flex; align-items:center; gap:12px; margin-bottom:20px; font-size:13px; }
-.agent-pulse { width:10px; height:10px; border-radius:50%; background:var(--green); animation:agentPulse 2s ease-in-out infinite; flex-shrink:0; }
-@keyframes agentPulse { 0%,100%{opacity:.4;box-shadow:0 0 0 0 rgba(16,185,129,.4)} 50%{opacity:1;box-shadow:0 0 0 6px rgba(16,185,129,0)} }
+.agent-status-bar { background:var(--primary-light); color:#fff; border-radius:var(--radius); padding:14px 20px; display:flex; align-items:center; gap:12px; margin-bottom:20px; font-size:13px; }
+.agent-pulse { width:10px; height:10px; border-radius:50%; background:var(--accent); animation:agentPulse 2s ease-in-out infinite; flex-shrink:0; }
+@keyframes agentPulse { 0%,100%{opacity:.4;box-shadow:0 0 0 0 rgba(100,213,179,.4)} 50%{opacity:1;box-shadow:0 0 0 6px rgba(100,213,179,0)} }
 .wf-section { margin-bottom:24px; }
 .wf-section-header { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
 .wf-section-header .count { background:var(--steel-bg); color:var(--text-muted); border-radius:10px; padding:2px 8px; font-size:10px; }
-.wf-card { background:#fff; border-left:4px solid var(--border); border-radius:var(--radius); padding:16px 20px; margin-bottom:10px; cursor:pointer; box-shadow:var(--shadow); transition:all .15s; }
+.wf-card { background:var(--card-bg); border-left:4px solid var(--border); border-radius:var(--radius); padding:16px 20px; margin-bottom:10px; cursor:pointer; box-shadow:var(--shadow); transition:all .15s; }
 .wf-card:hover { box-shadow:var(--shadow-lg); transform:translateY(-1px); }
 .wf-card.critical { border-left-color:var(--red); }
 .wf-card.high { border-left-color:var(--accent); }
@@ -269,9 +273,9 @@ tr:hover td { background:#f8fafc; }
 .wf-card .wf-headline { font-size:14px; font-weight:600; flex:1; }
 .wf-card .wf-meta { font-size:11px; color:var(--text-muted); }
 .wf-card .wf-actions { display:flex; gap:6px; margin-top:10px; }
-.agent-filter-btn { background:var(--steel-bg); color:var(--text); border:1px solid var(--border); font-size:11px; padding:4px 12px; border-radius:14px; cursor:pointer; transition:all .15s; }
-.agent-filter-btn:hover { background:var(--primary-light); color:#fff; border-color:var(--primary-light); }
-.agent-filter-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.agent-filter-btn { background:var(--card-bg); color:var(--text); border:1px solid var(--border); font-size:11px; padding:4px 12px; border-radius:14px; cursor:pointer; transition:all .15s; }
+.agent-filter-btn:hover { background:var(--accent); color:var(--primary); border-color:var(--accent); }
+.agent-filter-btn.active { background:var(--accent); color:var(--primary); border-color:var(--accent); }
 .nav-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--red); color:#fff; font-size:9px; font-weight:700; margin-left:auto; }
 
 /* ─── Agent Flow Diagram ─────────────────────────────────────────── */
@@ -286,7 +290,7 @@ tr:hover td { background:#f8fafc; }
 .af-node.visible { opacity:1; transform:scale(1); }
 .af-node .af-label { font-size:11px; font-weight:600; line-height:1.2; }
 .af-node .af-sub { font-size:9px; line-height:1.2; margin-top:2px; opacity:0.85; }
-.af-trigger { background:var(--accent); color:#fff; width:180px; }
+.af-trigger { background:var(--accent); color:var(--primary); width:180px; }
 .af-supervisor { background:var(--primary); color:#fff; width:200px; }
 .af-agent-active { background:var(--green); color:#fff; width:96px; cursor:default; position:relative; }
 .af-agent-inactive { background:var(--steel-bg); color:var(--steel); width:96px; border:1.5px dashed var(--steel-light); position:relative; }
@@ -302,7 +306,7 @@ tr:hover td { background:#f8fafc; }
 
 /* ─── Modal Overlay ──────────────────────────────────────────────── */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:150; display:flex; align-items:center; justify-content:center; }
-.modal-content { width:1400px; max-width:96vw; height:92vh; max-height:92vh; border-radius:12px; background:#fff; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.modal-content { width:1400px; max-width:96vw; height:92vh; max-height:92vh; border-radius:12px; background:var(--card-bg); display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.2); }
 .modal-header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
 .modal-header h3 { font-size:16px; font-weight:600; margin:0; }
 .modal-header button { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); padding:0 4px; }
@@ -330,7 +334,7 @@ tr:hover td { background:#f8fafc; }
 @keyframes flashIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
 .loading { text-align:center; padding:40px; color:var(--text-muted); font-size:13px; }
 .skeleton { display:flex; flex-direction:column; gap:10px; padding:20px; }
-.sk-row { height:14px; background:var(--border); border-radius:4px; animation:sk-pulse 1.5s ease-in-out infinite; }
+.sk-row { height:14px; background:var(--surface); border-radius:4px; animation:sk-pulse 1.5s ease-in-out infinite; }
 .sk-row:nth-child(1) { width:95%; }
 .sk-row:nth-child(2) { width:80%; }
 .sk-row:nth-child(3) { width:88%; }
@@ -341,12 +345,12 @@ tr:hover td { background:#f8fafc; }
 /* ═══════════════════════════════════════════════════════════════════════════
    DASHBOARD — Greeting, KPIs, Exceptions, Briefing, Activity
    ═══════════════════════════════════════════════════════════════════════════ */
-.dash-greeting { background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--accent) 100%); color:#fff; border-radius:var(--radius); padding:20px 28px; margin-bottom:20px; }
+.dash-greeting { background:linear-gradient(135deg,#0d1212 0%,#1c2a2b 50%,#34484a 100%); color:#fff; border-radius:var(--radius); padding:20px 28px; margin-bottom:20px; }
 .dash-greeting h2 { font-size:20px; font-weight:700; margin-bottom:4px; }
 .dash-greeting p { font-size:13px; opacity:.85; line-height:1.5; }
 
 /* ─── Exception Cards ────────────────────────────────────────────── */
-.exc-card { background:#fff; border-left:4px solid var(--border); border-radius:var(--radius); padding:14px 18px; margin-bottom:10px; box-shadow:var(--shadow); transition:all .15s; }
+.exc-card { background:var(--card-bg); border-left:4px solid var(--border); border-radius:var(--radius); padding:14px 18px; margin-bottom:10px; box-shadow:var(--shadow); transition:all .15s; }
 .exc-card:hover { box-shadow:var(--shadow-lg); }
 .exc-card.exc-critical { border-left-color:var(--red); }
 .exc-card.exc-high { border-left-color:#f97316; }
@@ -360,7 +364,7 @@ tr:hover td { background:#f8fafc; }
 
 /* ─── Collapsible Sections ───────────────────────────────────────── */
 .collapsible-section .cs-header { display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 0; user-select:none; }
-.collapsible-section .cs-header h3 { margin:0; font-size:14px; font-weight:600; color:var(--primary); }
+.collapsible-section .cs-header h3 { margin:0; font-size:14px; font-weight:600; color:var(--text); }
 .collapsible-section .cs-chevron { font-size:12px; color:var(--text-muted); transition:transform .2s; }
 .collapsible-section.collapsed .cs-chevron { transform:rotate(-90deg); }
 .collapsible-section .cs-body { overflow:hidden; transition:max-height .3s ease; }
@@ -387,37 +391,37 @@ tr:hover td { background:#f8fafc; }
 /* ═══════════════════════════════════════════════════════════════════════════
    ARCHITECTURE — INTERACTIVE PANZOOM DAG
    ═══════════════════════════════════════════════════════════════════════════ */
-.arch-banner { background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--accent) 100%); color:#fff; border-radius:var(--radius); padding:14px 28px; margin-bottom:12px; text-align:center; }
+.arch-banner { background:linear-gradient(135deg,#0d1212 0%,#1c2a2b 50%,#34484a 100%); color:#fff; border-radius:var(--radius); padding:14px 28px; margin-bottom:12px; text-align:center; }
 .arch-banner h2 { font-size:20px; font-weight:800; margin:0; }
 
 /* Column section labels */
-.arch-column-label { position:absolute; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#9ca3af; top:10px; pointer-events:none; padding:4px 12px; background:rgba(250,251,252,.9); border-radius:4px; white-space:nowrap; z-index:2; }
+.arch-column-label { position:absolute; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--text-muted); top:10px; pointer-events:none; padding:4px 12px; background:var(--card-bg); border:1px solid var(--border); border-radius:4px; white-space:nowrap; z-index:2; }
 
-.arch-viewport { position:relative; height:780px; overflow:hidden; border:1px solid var(--border); border-radius:var(--radius); background-color:#fafbfc; background-image:radial-gradient(circle,#d1d5db 1px,transparent 1px); background-size:20px 20px; }
+.arch-viewport { position:relative; height:780px; overflow:hidden; border:1px solid var(--border); border-radius:var(--radius); background-color:var(--steel-bg); background-image:radial-gradient(circle,rgba(91,130,121,.15) 1px,transparent 1px); background-size:20px 20px; }
 .arch-canvas { position:absolute; top:0; left:0; transform-origin:0 0; width:1860px; height:560px; }
 .arch-edge-svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
 .arch-zoom-controls { position:absolute; top:12px; left:12px; z-index:10; display:flex; flex-direction:column; gap:4px; }
-.arch-zoom-btn { width:32px; height:32px; border:1px solid var(--border); border-radius:6px; background:#fff; cursor:pointer; font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; justify-content:center; transition:all .15s; box-shadow:0 1px 3px rgba(0,0,0,.08); }
-.arch-zoom-btn:hover { background:var(--steel-bg); border-color:#9ca3af; }
-.arch-node { position:absolute; background:#fff; border:2px solid var(--border); border-radius:10px; width:280px; cursor:grab; transition:box-shadow .2s, border-color .2s; overflow:hidden; user-select:none; touch-action:none; }
+.arch-zoom-btn { width:32px; height:32px; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); cursor:pointer; font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; justify-content:center; transition:all .15s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.arch-zoom-btn:hover { background:var(--surface); border-color:var(--accent); }
+.arch-node { position:absolute; background:var(--card-bg); border:2px solid var(--border); border-radius:10px; width:280px; cursor:grab; transition:box-shadow .2s, border-color .2s; overflow:hidden; user-select:none; touch-action:none; }
 .arch-node.dragging { cursor:grabbing; box-shadow:0 12px 32px rgba(0,0,0,.18); z-index:100; transition:none; }
 .arch-node:hover { box-shadow:0 6px 24px rgba(0,0,0,.12); }
 .arch-node.selected { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.3), 0 6px 24px rgba(0,0,0,.12); }
 .arch-node-accent { position:absolute; top:0; left:0; width:4px; height:100%; border-radius:10px 0 0 10px; }
 .arch-node-type-badge { display:inline-block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; border-radius:3px; margin-top:2px; }
 .arch-node-header { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-size:12px; font-weight:600; }
-.arch-node-header.online { background:#f0fdf4; border-bottom:1px solid #bbf7d0; }
-.arch-node-header.error { background:#fef2f2; border-bottom:1px solid #fecaca; }
-.arch-node-header .arch-node-title { display:flex; align-items:center; gap:6px; color:var(--primary); }
+.arch-node-header.online { background:var(--green-bg); border-bottom:1px solid rgba(100,213,179,.3); }
+.arch-node-header.error { background:var(--red-bg); border-bottom:1px solid rgba(239,68,68,.3); }
+.arch-node-header .arch-node-title { display:flex; align-items:center; gap:6px; color:var(--text); }
 .arch-node-header .arch-node-title svg { width:14px; height:14px; flex-shrink:0; }
 .arch-node-status-icon { width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
-.arch-node-status-icon.online { color:#16a34a; }
-.arch-node-status-icon.error { color:#dc2626; }
+.arch-node-status-icon.online { color:var(--accent); }
+.arch-node-status-icon.error { color:var(--red); }
 .arch-node-body { padding:10px 12px; }
 .arch-node-desc { font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:6px; }
 .arch-node-items { margin-bottom:8px; }
 .arch-node-item { font-size:11px; line-height:1.6; display:flex; align-items:center; gap:4px; }
-.arch-node-item.success { color:#16a34a; }
+.arch-node-item.success { color:var(--accent); }
 .arch-node-item.info { color:var(--text-muted); }
 .arch-node-item::before { content:'\00B7'; font-weight:bold; }
 .arch-node-item.success::before { content:''; }
@@ -427,19 +431,19 @@ tr:hover td { background:#f8fafc; }
 .arch-node-action { font-size:11px; color:var(--text); display:flex; align-items:center; gap:4px; padding:2px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .arch-node-action::before { content:'\25B8'; color:var(--text-muted); font-size:9px; flex-shrink:0; }
 .arch-node-actions-more { font-size:10px; color:var(--text-muted); padding:2px 0; }
-.flow-detail-panel { height:0; overflow:hidden; background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 2px 12px rgba(0,0,0,.06); transition:height .3s ease; margin-top:16px; }
+.flow-detail-panel { height:0; overflow:hidden; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-lg); transition:height .3s ease; margin-top:16px; }
 .flow-detail-panel.open { height:auto; max-height:560px; overflow-y:auto; }
 .flow-detail-header { display:flex; align-items:center; justify-content:space-between; padding:12px 24px; border-bottom:1px solid var(--border); }
-.flow-detail-header.online { background:linear-gradient(90deg,#f0fdf4,#f8fafc); }
-.flow-detail-header.error { background:linear-gradient(90deg,#fef2f2,#f8fafc); }
+.flow-detail-header.online { background:linear-gradient(90deg,rgba(100,213,179,.1),var(--card-bg)); }
+.flow-detail-header.error { background:linear-gradient(90deg,rgba(239,68,68,.1),var(--card-bg)); }
 .flow-detail-header-left { display:flex; align-items:center; gap:10px; }
 .flow-detail-header-left .flow-detail-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
-.flow-detail-header-left .flow-detail-name { font-size:15px; font-weight:700; color:var(--primary); }
+.flow-detail-header-left .flow-detail-name { font-size:15px; font-weight:700; color:var(--text); }
 .flow-detail-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:6px; text-transform:uppercase; letter-spacing:.5px; }
-.flow-detail-badge.online { background:#dcfce7; color:#16a34a; }
-.flow-detail-badge.error { background:#fee2e2; color:#dc2626; }
+.flow-detail-badge.online { background:var(--green-bg); color:var(--accent); }
+.flow-detail-badge.error { background:var(--red-bg); color:var(--red); }
 .flow-detail-header-right { display:flex; align-items:center; gap:10px; }
-.flow-detail-header-right a, .flow-detail-header-right button { font-size:12px; font-weight:600; border:1px solid var(--border); border-radius:6px; padding:5px 12px; cursor:pointer; text-decoration:none; background:#fff; color:var(--text); transition:all .15s; display:flex; align-items:center; gap:4px; }
+.flow-detail-header-right a, .flow-detail-header-right button { font-size:12px; font-weight:600; border:1px solid var(--border); border-radius:6px; padding:5px 12px; cursor:pointer; text-decoration:none; background:var(--card-bg); color:var(--text); transition:all .15s; display:flex; align-items:center; gap:4px; }
 .flow-detail-header-right a:hover, .flow-detail-header-right button:hover { background:var(--steel-bg); }
 .flow-detail-close { background:none!important; border:none!important; font-size:18px; cursor:pointer; color:var(--text-muted); padding:4px 8px!important; }
 .flow-detail-close:hover { color:var(--text); }
@@ -459,8 +463,8 @@ tr:hover td { background:#f8fafc; }
 .de-sidebar-header { font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; padding:12px 16px 8px; }
 .de-table-list { list-style:none; margin:0; padding:0; }
 .de-table-list li { display:flex; justify-content:space-between; align-items:center; padding:8px 16px; cursor:pointer; font-size:13px; color:var(--text); border-left:3px solid transparent; transition:all .12s; }
-.de-table-list li:hover { background:#f1f5f9; }
-.de-table-list li.active { background:#eff6ff; border-left-color:#3b82f6; font-weight:600; color:#1d4ed8; }
+.de-table-list li:hover { background:var(--surface); }
+.de-table-list li.active { background:var(--blue-bg); border-left-color:var(--accent); font-weight:600; color:var(--accent); }
 .de-table-list li .de-row-count { font-size:11px; color:var(--text-muted); font-weight:400; white-space:nowrap; }
 .data-explorer-content { overflow-y:auto; padding:16px 20px; }
 .de-card { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:14px; overflow:hidden; }
@@ -468,88 +472,182 @@ tr:hover td { background:#f8fafc; }
 .de-card-body { padding:0; overflow-x:auto; }
 .de-card-body table { width:100%; border-collapse:collapse; font-size:12px; }
 .de-card-body table th { position:sticky; top:0; background:var(--steel-bg); padding:6px 12px; text-align:left; font-weight:600; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
-.de-card-body table td { padding:5px 12px; border-bottom:1px solid #f1f5f9; color:var(--text); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.de-card-body table tr:hover td { background:#f8fafc; }
-.de-badge-type { display:inline-block; font-size:10px; background:#eff6ff; color:#3b82f6; border-radius:4px; padding:1px 6px; font-weight:600; }
-.de-badge-pk { display:inline-block; font-size:9px; background:#fef3c7; color:#d97706; border-radius:4px; padding:1px 5px; font-weight:700; margin-left:4px; }
-.de-badge-nullable { display:inline-block; font-size:9px; background:#f1f5f9; color:#9ca3af; border-radius:4px; padding:1px 5px; margin-left:4px; }
+.de-card-body table td { padding:5px 12px; border-bottom:1px solid var(--border); color:var(--text); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.de-card-body table tr:hover td { background:var(--primary-light); }
+.de-badge-type { display:inline-block; font-size:10px; background:var(--blue-bg); color:#93b4f5; border-radius:4px; padding:1px 6px; font-weight:600; }
+.de-badge-pk { display:inline-block; font-size:9px; background:var(--yellow-bg); color:#fcd34d; border-radius:4px; padding:1px 5px; font-weight:700; margin-left:4px; }
+.de-badge-nullable { display:inline-block; font-size:9px; background:rgba(91,130,121,.15); color:var(--text-muted); border-radius:4px; padding:1px 5px; margin-left:4px; }
 .de-null-cell { color:#d1d5db; font-style:italic; }
 .de-loading { display:flex; align-items:center; justify-content:center; padding:40px; color:var(--text-muted); font-size:13px; gap:8px; }
 .de-empty-state { text-align:center; padding:32px; color:var(--text-muted); font-size:13px; }
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLEET-SPECIFIC — Zone grid, battery bars, demand heatmap, event cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+.zone-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; margin-bottom:24px; }
+.zone-card { background:var(--card-bg); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); border-left:4px solid var(--border); transition:all .15s; }
+.zone-card:hover { box-shadow:var(--shadow-lg); }
+.zone-card.zone-high { border-left-color:var(--red); }
+.zone-card.zone-medium { border-left-color:#f59e0b; }
+.zone-card.zone-low { border-left-color:var(--green); }
+.zone-card .zone-name { font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.zone-card .zone-city { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; }
+.zone-card .zone-stats { display:flex; justify-content:space-between; margin-top:8px; font-size:11px; }
+.zone-card .zone-stats .stat-label { color:var(--text-muted); }
+.zone-card .zone-stats .stat-value { font-weight:600; color:var(--text); }
+
+.battery-bar { display:inline-flex; align-items:center; gap:4px; }
+.battery-bar .bar { width:40px; height:10px; border-radius:3px; background:var(--surface); overflow:hidden; }
+.battery-bar .bar-fill { height:100%; border-radius:3px; transition:width .3s; }
+.battery-bar .bar-fill.high { background:var(--green); }
+.battery-bar .bar-fill.medium { background:#f59e0b; }
+.battery-bar .bar-fill.low { background:var(--red); }
+.battery-bar .bar-pct { font-size:10px; color:var(--text-muted); min-width:28px; text-align:right; }
+
+.demand-score { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.demand-score.score-high { background:var(--red-bg); color:var(--red); }
+.demand-score.score-medium { background:var(--yellow-bg); color:#f59e0b; }
+.demand-score.score-low { background:var(--green-bg); color:var(--green); }
+
+.event-card { background:var(--card-bg); border-radius:var(--radius); padding:14px 18px; box-shadow:var(--shadow); margin-bottom:10px; border-left:4px solid var(--accent); }
+.event-card .event-name { font-size:14px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.event-card .event-meta { font-size:11px; color:var(--text-muted); }
+.event-card .event-demand { margin-top:8px; }
+
+.upcoming-event { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+.upcoming-event:last-child { border-bottom:none; }
+.upcoming-event .ue-date { min-width:48px; text-align:center; }
+.upcoming-event .ue-date .day { font-size:20px; font-weight:700; color:var(--accent); line-height:1; }
+.upcoming-event .ue-date .month { font-size:10px; color:var(--text-muted); text-transform:uppercase; }
+.upcoming-event .ue-info { flex:1; }
+.upcoming-event .ue-info .ue-name { font-size:13px; font-weight:600; }
+.upcoming-event .ue-info .ue-venue { font-size:11px; color:var(--text-muted); }
+
+.briefing-section { background:var(--card-bg); border-radius:var(--radius); padding:16px 20px; margin-bottom:16px; border-left:4px solid var(--accent); }
+.briefing-section h4 { font-size:12px; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+.briefing-section p { font-size:13px; line-height:1.6; color:var(--text); }
+
+.demand-horizon-toggle { display:flex; gap:4px; margin-bottom:16px; }
+.demand-horizon-toggle button { background:var(--card-bg); border:1px solid var(--border); color:var(--text-muted); padding:6px 14px; border-radius:14px; font-size:11px; font-weight:500; cursor:pointer; transition:all .15s; }
+.demand-horizon-toggle button:hover { border-color:var(--accent); color:var(--accent); }
+.demand-horizon-toggle button.active { background:var(--accent); color:var(--primary); border-color:var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3D VEHICLE VIEWER — Fleet Status Page
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fleet-viewer-card { background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:20px; overflow:hidden; }
+.fleet-viewer-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); }
+.fleet-viewer-header h3 { font-size:14px; font-weight:600; color:var(--primary-light); margin:0; display:flex; align-items:center; gap:8px; }
+.fleet-viewer-header .viewer-vehicle-select { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px; }
+.fleet-viewer-header .viewer-vehicle-id { font-weight:700; color:var(--accent); font-size:14px; }
+#fleet-3d-container { position:relative; width:100%; height:420px; background:linear-gradient(180deg, #e8f0ec 0%, #d3e4df 40%, #c2d8d0 100%); cursor:grab; }
+#fleet-3d-container:active { cursor:grabbing; }
+#fleet-3d-container canvas { display:block; }
+
+/* CSS2D telemetry labels rendered by Three.js */
+.telem-label { pointer-events:none; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.telem-speed { background:var(--primary); color:#fff; padding:4px 12px; border-radius:20px; font-size:13px; font-weight:700; white-space:nowrap; display:flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+.telem-speed .speed-val { font-size:18px; }
+.telem-status-dot { width:12px; height:12px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+.telem-status-dot.active { background:#16a34a; }
+.telem-status-dot.idle { background:#f59e0b; }
+.telem-status-dot.charging { background:#3b82f6; }
+.telem-status-dot.maintenance { background:#ef4444; }
+.telem-status-dot.en_route { background:#8b5cf6; }
+.telem-coords { background:rgba(13,18,18,.75); color:#d3e4df; padding:3px 10px; border-radius:12px; font-size:10px; font-weight:500; white-space:nowrap; letter-spacing:.3px; }
+
+/* Telemetry strip below 3D viewer */
+.telem-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
+.telem-gauge { background:var(--card-bg); padding:12px 16px; text-align:center; }
+.telem-gauge .tg-label { font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); font-weight:600; margin-bottom:4px; }
+.telem-gauge .tg-value { font-size:18px; font-weight:700; color:var(--text); }
+.telem-gauge .tg-unit { font-size:10px; color:var(--text-muted); margin-left:2px; }
+.telem-gauge .tg-value.nominal { color:var(--green); }
+.telem-gauge .tg-value.degraded { color:var(--red); }
+.telem-gauge .tg-value.warning { color:var(--yellow); }
+
+/* Empty state for 3D viewer */
+.viewer-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:8px; }
+.viewer-empty .ve-icon { width:48px; height:48px; background:var(--surface); border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.viewer-empty p { font-size:13px; }
 </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     LAYOUT — TODO(vibe): Rebuild this to match user's preferred layout & branding.
-     This is a minimal sidebar+topbar placeholder. Replace with whatever
-     the user wants (top nav, dashboard-first, dark theme, etc.)
+     LAYOUT — Zoox Fleet Intelligence Top Navigation
      ═══════════════════════════════════════════════════════════════════════════ -->
-<div id="sidebar">
-  <div class="logo">
-    <h1>DEMO</h1>
-    <span>Command Center</span>
+<div id="topnav">
+  <div class="nav-brand">
+    <div class="nav-logo">Z</div>
+    <h1>Zoox Fleet Intelligence</h1>
   </div>
-  <nav>
-    <!-- TODO(vibe): Add domain pages (dashboard, inventory, etc.) as the user requests -->
-    <a href="#" data-page="dashboard" class="active"><span class="icon"><i data-lucide="layout-dashboard" style="width:16px;height:16px"></i></span> Dashboard</a>
-    <a href="#" data-page="chat"><span class="icon"><i data-lucide="message-circle" style="width:16px;height:16px"></i></span> AI Chat</a>
-    <a href="#" data-page="agent" id="nav-agent"><span class="icon"><i data-lucide="bot" style="width:16px;height:16px"></i></span> Agent Workflows <span class="nav-badge" id="agent-nav-badge" style="display:none">0</span></a>
-    <a href="#" data-page="arch"><span class="icon"><i data-lucide="layers" style="width:16px;height:16px"></i></span> Architecture</a>
-  </nav>
-  <div class="sidebar-footer">Databricks App</div>
+  <div class="nav-links">
+    <a href="#" data-page="dashboard" class="active"><span class="icon"><i data-lucide="layout-dashboard" style="width:14px;height:14px"></i></span> Dashboard</a>
+    <a href="#" data-page="fleet"><span class="icon"><i data-lucide="car" style="width:14px;height:14px"></i></span> Fleet Status</a>
+    <a href="#" data-page="events"><span class="icon"><i data-lucide="calendar" style="width:14px;height:14px"></i></span> Events</a>
+    <a href="#" data-page="demand"><span class="icon"><i data-lucide="trending-up" style="width:14px;height:14px"></i></span> Demand</a>
+    <a href="#" data-page="chat"><span class="icon"><i data-lucide="message-circle" style="width:14px;height:14px"></i></span> AI Chat</a>
+    <a href="#" data-page="agent" id="nav-agent"><span class="icon"><i data-lucide="bot" style="width:14px;height:14px"></i></span> Workflows <span class="nav-badge" id="agent-nav-badge" style="display:none">0</span></a>
+    <a href="#" data-page="arch"><span class="icon"><i data-lucide="layers" style="width:14px;height:14px"></i></span> Architecture</a>
+  </div>
+  <div class="nav-status">
+    <span class="pill pill-green pill-live">System Live</span>
+  </div>
 </div>
 
-<div id="main">
-  <div id="topbar">
-    <h2 id="page-title">AI Chat</h2>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="pill pill-green pill-live">System Live</span>
-    </div>
-  </div>
-  <div id="content">
+<div id="content">
 
-    <!-- ═══ Dashboard Page ═══ -->
+    <!-- ═══ Dashboard Page — Fleet Command Center ═══ -->
     <div id="page-dashboard" class="page active">
       <!-- Greeting banner -->
       <div id="dash-greeting" class="dash-greeting">
         <h2 id="dash-greeting-text">Good morning</h2>
-        <p id="dash-greeting-sub">Loading operational summary...</p>
+        <p id="dash-greeting-sub">Loading fleet operational summary...</p>
       </div>
-      <!-- KPI strip -->
+      <!-- Fleet KPI strip -->
       <div class="kpi-row" id="dash-kpis"></div>
-      <!-- Two-column layout: exceptions + recent activity -->
+      <!-- Two-column: Zone Status + Upcoming Events -->
       <div class="grid-2">
-        <div class="card collapsible-section" id="dash-exceptions-section">
-          <div class="cs-header" onclick="toggleSection('dash-exceptions-section')">
+        <div class="card collapsible-section" id="dash-zones-section">
+          <div class="cs-header" onclick="toggleSection('dash-zones-section')">
             <span class="cs-chevron">&#x25BC;</span>
-            <h3>Open Alerts &amp; Exceptions</h3>
-            <span class="badge badge-open" id="dash-exc-count" style="margin-left:auto">0</span>
+            <h3>Zone Status</h3>
           </div>
-          <div class="cs-body" id="dash-exceptions" style="max-height:600px"></div>
+          <div class="cs-body" id="dash-zones" style="max-height:600px"></div>
         </div>
-        <div class="card collapsible-section" id="dash-activity-section">
-          <div class="cs-header" onclick="toggleSection('dash-activity-section')">
+        <div class="card collapsible-section" id="dash-events-section">
+          <div class="cs-header" onclick="toggleSection('dash-events-section')">
             <span class="cs-chevron">&#x25BC;</span>
-            <h3>Recent Agent Activity</h3>
+            <h3>Upcoming Events</h3>
           </div>
-          <div class="cs-body" id="dash-activity" style="max-height:600px"></div>
+          <div class="cs-body" id="dash-events" style="max-height:600px"></div>
         </div>
       </div>
-      <!-- Briefing section (collapsible) -->
-      <div class="card collapsible-section" id="dash-briefing-section">
-        <div class="cs-header" onclick="toggleSection('dash-briefing-section')">
-          <span class="cs-chevron">&#x25BC;</span>
-          <h3>AI Briefing</h3>
-          <button class="btn btn-sm btn-blue" style="margin-left:auto" onclick="event.stopPropagation();loadBriefingStream()">Refresh</button>
+      <!-- Alerts + Morning Briefing -->
+      <div class="grid-2">
+        <div class="card collapsible-section" id="dash-alerts-section">
+          <div class="cs-header" onclick="toggleSection('dash-alerts-section')">
+            <span class="cs-chevron">&#x25BC;</span>
+            <h3>Surge Alerts</h3>
+            <span class="badge badge-open" id="dash-alert-count" style="margin-left:auto">0</span>
+          </div>
+          <div class="cs-body" id="dash-alerts" style="max-height:600px"></div>
         </div>
-        <div class="cs-body" id="dash-briefing" style="max-height:600px;font-size:13px;line-height:1.6;color:var(--text)"></div>
+        <div class="card collapsible-section" id="dash-briefing-section">
+          <div class="cs-header" onclick="toggleSection('dash-briefing-section')">
+            <span class="cs-chevron">&#x25BC;</span>
+            <h3>AI Morning Briefing</h3>
+            <button class="btn btn-sm btn-blue" style="margin-left:auto" onclick="event.stopPropagation();loadBriefingStream()">Refresh</button>
+          </div>
+          <div class="cs-body" id="dash-briefing" style="max-height:600px;font-size:13px;line-height:1.6;color:var(--text)"></div>
+        </div>
       </div>
     </div>
 
     <!-- ═══ Starter Page: AI Chat ═══ -->
-    <div id="page-chat" class="page" style="display:none;height:calc(100vh - 60px);flex-direction:column;">
+    <div id="page-chat" class="page" style="display:none;height:calc(100vh - 52px);flex-direction:column;">
       <div class="suggested-prompts" id="chat-prompts"></div>
       <div id="chat-messages" style="flex:1;overflow-y:auto;"></div>
       <div class="chat-toolbar" id="chat-toolbar">
@@ -564,8 +662,84 @@ tr:hover td { background:#f8fafc; }
           <span class="toggle-track"></span>
           <span>Auto-approve</span>
         </label>
-        <input id="chat-input" placeholder="Ask the AI advisor..." onkeydown="if(event.key==='Enter')sendChat()">
+        <input id="chat-input" placeholder="Ask about fleet operations, demand, events..." onkeydown="if(event.key==='Enter')sendChat()">
         <button class="btn btn-primary" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+
+    <!-- ═══ Fleet Status Page ═══ -->
+    <div id="page-fleet" class="page">
+      <!-- 3D Vehicle Viewer -->
+      <div class="fleet-viewer-card">
+        <div class="fleet-viewer-header">
+          <h3><i data-lucide="box" style="width:16px;height:16px"></i> Vehicle Viewer</h3>
+          <div class="viewer-vehicle-select">
+            <span id="viewer-vehicle-label">Select a vehicle below</span>
+            <span id="viewer-vehicle-id" class="viewer-vehicle-id" style="display:none"></span>
+          </div>
+        </div>
+        <div id="fleet-3d-container">
+          <div class="viewer-empty" id="viewer-empty-state">
+            <div class="ve-icon"><i data-lucide="car" style="width:24px;height:24px;color:var(--steel)"></i></div>
+            <p>Click a vehicle in the table to view telemetry</p>
+          </div>
+        </div>
+        <div class="telem-strip" id="telem-strip" style="display:none">
+          <div class="telem-gauge"><div class="tg-label">Speed</div><div class="tg-value" id="tg-speed">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">Battery</div><div class="tg-value" id="tg-battery">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">Range</div><div class="tg-value" id="tg-range">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">Motor Temp</div><div class="tg-value" id="tg-motor">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">Cabin Temp</div><div class="tg-value" id="tg-cabin">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">Passengers</div><div class="tg-value" id="tg-passengers">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">LIDAR</div><div class="tg-value nominal" id="tg-lidar">—</div></div>
+          <div class="telem-gauge"><div class="tg-label">Cameras</div><div class="tg-value nominal" id="tg-cameras">—</div></div>
+        </div>
+      </div>
+
+      <!-- Filters + Table -->
+      <div class="filter-bar" id="fleet-filters">
+        <select id="fleet-city-filter" onchange="loadFleet()"><option value="">All Cities</option></select>
+        <select id="fleet-status-filter" onchange="loadFleet()"><option value="">All Statuses</option></select>
+        <select id="fleet-zone-filter" onchange="loadFleet()"><option value="">All Zones</option></select>
+        <button class="btn btn-sm btn-primary" onclick="askAI('Give me a fleet status overview with any vehicles that need attention')">Ask AI</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="fleet-table">
+          <thead><tr><th>Vehicle</th><th>City</th><th>Zone</th><th>Status</th><th>Battery</th><th>Rides Today</th><th>Last Ride</th></tr></thead>
+          <tbody id="fleet-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ Events Page ═══ -->
+    <div id="page-events" class="page">
+      <div class="filter-bar" id="events-filters">
+        <select id="events-city-filter" onchange="loadEvents()"><option value="">All Cities</option></select>
+        <select id="events-type-filter" onchange="loadEvents()"><option value="">All Types</option></select>
+        <button class="btn btn-sm btn-primary" onclick="askAI('What events are happening this week and how should we prepare the fleet?')">Ask AI</button>
+      </div>
+      <div id="events-list"></div>
+    </div>
+
+    <!-- ═══ Demand Forecast Page ═══ -->
+    <div id="page-demand" class="page">
+      <div class="filter-bar">
+        <select id="demand-city-filter" onchange="loadDemand()"><option value="">All Cities</option></select>
+        <select id="demand-zone-filter" onchange="loadDemand()"><option value="">All Zones</option></select>
+        <div class="demand-horizon-toggle" id="demand-horizon">
+          <button class="active" data-horizon="" onclick="setDemandHorizon(this,'')">All</button>
+          <button data-horizon="1h" onclick="setDemandHorizon(this,'1h')">1h</button>
+          <button data-horizon="4h" onclick="setDemandHorizon(this,'4h')">4h</button>
+          <button data-horizon="24h" onclick="setDemandHorizon(this,'24h')">24h</button>
+          <button data-horizon="7d" onclick="setDemandHorizon(this,'7d')">7d</button>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="askAI('Analyze current demand forecasts and recommend fleet positioning')">Ask AI</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="demand-table">
+          <thead><tr><th>Zone</th><th>City</th><th>Date</th><th>Hour</th><th>Predicted Demand</th><th>Predicted Supply</th><th>Demand Score</th><th>Confidence</th></tr></thead>
+          <tbody id="demand-tbody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -580,7 +754,10 @@ tr:hover td { background:#f8fafc; }
       <div id="agent-filters" style="display:flex;gap:8px;margin:12px 0 4px;align-items:center;">
         <span style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Filter:</span>
         <button class="btn btn-sm agent-filter-btn active" data-wf-filter="all" onclick="filterAgentWorkflows('all')">All</button>
-        <!-- TODO(vibe): Add workflow type filter buttons here -->
+        <button class="btn btn-sm agent-filter-btn" data-wf-filter="rebalancing_request" onclick="filterAgentWorkflows('rebalancing_request')">Rebalancing</button>
+        <button class="btn btn-sm agent-filter-btn" data-wf-filter="surge_response" onclick="filterAgentWorkflows('surge_response')">Surge Response</button>
+        <button class="btn btn-sm agent-filter-btn" data-wf-filter="dispatch_override" onclick="filterAgentWorkflows('dispatch_override')">Dispatch Override</button>
+        <button class="btn btn-sm agent-filter-btn" data-wf-filter="maintenance_alert" onclick="filterAgentWorkflows('maintenance_alert')">Maintenance</button>
       </div>
       <div class="wf-section" id="agent-pending"></div>
       <div class="wf-section" id="agent-resolved"></div>
@@ -603,10 +780,7 @@ tr:hover td { background:#f8fafc; }
       <div id="flow-detail-panel" class="flow-detail-panel"></div>
     </div>
 
-    <!-- TODO(vibe): Add domain pages here (dashboard, inventory, etc.) -->
-
   </div>
-</div>
 
 <!-- ═══ Detail Panel ═══ -->
 <div id="detail-panel">
@@ -675,20 +849,20 @@ function handleSessionExpired() {
   overlay.id = 'session-expired-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(17,25,34,0.85);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:12px;padding:40px 48px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3);">
-      <div style="width:56px;height:56px;margin:0 auto 20px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+    <div style="background:var(--card-bg);border-radius:12px;padding:40px 48px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);">
+      <div style="width:56px;height:56px;margin:0 auto 20px;background:var(--red-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
       </div>
-      <h2 style="font-size:20px;font-weight:600;color:#1e293b;margin-bottom:8px;">Session Expired</h2>
-      <p style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:24px;">
+      <h2 style="font-size:20px;font-weight:600;color:var(--text);margin-bottom:8px;">Session Expired</h2>
+      <p style="font-size:14px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">
         Your Databricks authentication has expired.<br>Please log in again to continue.
       </p>
-      <button onclick="forceReLogin()" style="background:var(--primary,#1a2332);color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.2s;">
+      <button onclick="forceReLogin()" style="background:#64d5b3;color:#0d1212;border:none;padding:12px 32px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s;">
         Log in again
       </button>
-      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">
+      <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">
         This happens when your session is idle for an extended period.
       </p>
     </div>`;
@@ -725,8 +899,8 @@ function showSessionWarning(secondsLeft) {
   const mins = Math.max(1, Math.round(secondsLeft / 60));
   const banner = document.createElement('div');
   banner.id = 'session-warning-banner';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99998;background:#fef3c7;color:#92400e;text-align:center;padding:10px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:12px;';
-  banner.innerHTML = `<span>Your session expires in ~${mins} minute${mins > 1 ? 's' : ''}. Save your work and </span><button onclick="forceReLogin()" style="background:#92400e;color:#fff;border:none;padding:4px 14px;border-radius:4px;font-size:12px;cursor:pointer;">Re-login now</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#92400e;cursor:pointer;font-size:16px;margin-left:8px;">&times;</button>`;
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99998;background:rgba(245,158,11,.12);color:#92400e;text-align:center;padding:10px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid rgba(245,158,11,.3);';
+  banner.innerHTML = `<span>Your session expires in ~${mins} minute${mins > 1 ? 's' : ''}. Save your work and </span><button onclick="forceReLogin()" style="background:#f59e0b;color:#0d1212;border:none;padding:4px 14px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:600;">Re-login now</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#92400e;cursor:pointer;font-size:16px;margin-left:8px;">&times;</button>`;
   document.body.appendChild(banner);
 }
 
@@ -741,7 +915,7 @@ function formatMd(s) {
   return s
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(91,130,121,.12);padding:1px 4px;border-radius:3px;font-size:12px;color:var(--primary-light);">$1</code>')
     .replace(/\n/g, '<br>');
 }
 
@@ -766,11 +940,13 @@ function showFlash(msg, isError=false) {
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────
-// TODO(vibe): Add domain pages to PAGES and PAGE_TITLES when you create them
-const PAGES = ['dashboard','chat','agent','arch'];
+const PAGES = ['dashboard','fleet','events','demand','chat','agent','arch'];
 const PAGE_TITLES = {
-  dashboard: 'Dashboard',
-  chat:  'AI Chat',
+  dashboard: 'Fleet Command Center',
+  fleet: 'Fleet Status',
+  events: 'Events',
+  demand: 'Demand Forecast',
+  chat:  'AI Fleet Advisor',
   agent: 'Agent Workflows',
   arch:  'Architecture',
 };
@@ -789,17 +965,18 @@ function navigate(page) {
   el.classList.add('active');
   el.style.display = page === 'chat' ? 'flex' : 'block';
   requestAnimationFrame(() => el.classList.add('fade-in'));
-  document.getElementById('page-title').textContent = PAGE_TITLES[page]||page;
-  document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
+  document.querySelectorAll('#topnav .nav-links a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
   closeDetail();
-  // TODO(vibe): Add page loader calls here when you create domain pages
   if (page === 'dashboard') loadDashboard();
+  else if (page === 'fleet') loadFleet();
+  else if (page === 'events') loadEvents();
+  else if (page === 'demand') loadDemand();
   else if (page === 'chat') loadChat();
   else if (page === 'agent') loadAgentPage();
   else if (page === 'arch') loadArchitecture();
 }
 
-document.querySelectorAll('#sidebar nav a').forEach(a => {
+document.querySelectorAll('#topnav .nav-links a').forEach(a => {
   a.addEventListener('click', e => { e.preventDefault(); navigate(a.dataset.page); });
 });
 
@@ -859,10 +1036,16 @@ function updateAgentBadge(count) {
 }
 
 // ─── Agent Name Formatter ────────────────────────────────────────────────
-// TODO(vibe): Add your MAS agent name mappings here
 function formatAgentName(name) {
   const shortName = name.includes('__') ? name.split('__').pop() : name;
-  const map = {};
+  const map = {
+    'zoox_fleet_data_space': 'Fleet Data Query',
+    'zoox_fleet_genie': 'Fleet Data Query',
+    'fleet_demand_predictor': 'Demand Predictor',
+    'fleet_zone_optimizer': 'Zone Optimizer',
+    'mcp-lakebase-connection': 'Fleet Database (write)',
+    'zoox_knowledge_base': 'Fleet Knowledge Base',
+  };
   return map[shortName] || map[name] || shortName.replace(/[-_]/g, ' ');
 }
 
@@ -1352,12 +1535,12 @@ async function approveMcp(btn, approve) {
    STARTER: AI Chat — Load + Welcome
    ═══════════════════════════════════════════════════════════════════════════ */
 
-// TODO(vibe): Customize suggested prompts for your domain
 const SUGGESTED = [
-  "What needs my attention right now?",
-  "Show me the key metrics and trends.",
-  "What anomalies should I be aware of?",
-  "Generate a summary report.",
+  "What's the fleet status right now?",
+  "Are there any surge alerts I should address?",
+  "Which zones need rebalancing today?",
+  "Show me demand forecasts for the next 4 hours",
+  "What events are coming up that affect fleet positioning?",
 ];
 
 function loadChat() {
@@ -1374,22 +1557,20 @@ function loadChat() {
   } catch(_) {}
 
   if (!document.getElementById('chat-messages').children.length) {
-    // TODO(vibe): Customize the welcome card for your domain
     document.getElementById('chat-messages').innerHTML = `
       <div class="chat-welcome">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div class="chat-welcome-avatar">D</div>
+          <div class="chat-welcome-avatar">Z</div>
           <div>
-            <div style="font-size:15px;font-weight:700">AI Advisor</div>
+            <div style="font-size:15px;font-weight:700">Zoox Fleet Advisor</div>
             <div style="font-size:11px;opacity:.7;margin-top:2px">
-              <span class="pill" style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.9);font-size:9px">Multi-Agent</span>
+              <span class="pill" style="background:rgba(0,180,255,.25);color:rgba(255,255,255,.9);font-size:9px">Multi-Agent</span>
               Powered by Databricks
             </div>
           </div>
         </div>
         <div style="font-size:13px;line-height:1.6;opacity:.9">
-          I can analyze your data, answer questions, and take actions on your behalf.
-          Ask me anything.
+          I can analyze fleet operations, predict demand, manage surge alerts, and coordinate vehicle rebalancing across Las Vegas and San Francisco. Ask me anything about your fleet.
         </div>
       </div>`;
   }
@@ -1424,8 +1605,12 @@ function renderAgentSections(workflows, filter) {
 }
 
 function renderWfCard(wf, showActions) {
-  // TODO(vibe): Add your workflow type labels here
-  const TYPE_LABELS = {};
+  const TYPE_LABELS = {
+    'rebalancing_request': 'Rebalancing',
+    'surge_response': 'Surge Response',
+    'dispatch_override': 'Dispatch Override',
+    'maintenance_alert': 'Maintenance',
+  };
   const typeBadge = `<span class="badge badge-${wf.workflow_type}">${TYPE_LABELS[wf.workflow_type]||wf.workflow_type}</span>`;
   const actions = showActions && wf.status === 'pending_approval' ? `
     <div class="wf-actions">
@@ -1466,15 +1651,19 @@ async function dismissWorkflow(id) {
 }
 
 // ─── Agent Flow Diagram ──────────────────────────────────────────────────
-// TODO(vibe): Define your domain-specific agents and workflow-to-agent mapping
 const DOMAIN_AGENTS = [
-  {key: 'data_query',     label: 'Data Query',     subtitle: 'Genie Space',  detail: 'Queries structured data via natural language.'},
-  {key: 'knowledge_base', label: 'Knowledge Base',  subtitle: 'Documents',   detail: 'Retrieves domain knowledge from the Knowledge Assistant.'},
-  {key: 'database_writer',label: 'Database',        subtitle: 'Write ops',   detail: 'Creates and updates operational records in Lakebase.'},
+  {key: 'fleet_data',      label: 'Fleet Data',      subtitle: 'Genie Space',     detail: 'Queries fleet data — vehicles, rides, zones, events, demand forecasts.'},
+  {key: 'demand_predictor',label: 'Demand Predict',   subtitle: 'UC Function',     detail: 'Predicts demand surges based on events and historical patterns.'},
+  {key: 'zone_optimizer',  label: 'Zone Optimizer',   subtitle: 'UC Function',     detail: 'Optimizes vehicle distribution across zones to minimize wait times.'},
+  {key: 'knowledge_base',  label: 'Knowledge Base',   subtitle: 'Documents',       detail: 'Retrieves fleet operations policies and procedures.'},
+  {key: 'database_writer', label: 'Fleet DB',         subtitle: 'Lakebase Write',  detail: 'Creates fleet actions, surge alerts, dispatch overrides, and notes.'},
 ];
 
 const WORKFLOW_AGENTS = {
-  // 'my_workflow_type': ['data_query', 'knowledge_base', 'database_writer'],
+  'rebalancing_request':  ['fleet_data', 'zone_optimizer', 'database_writer'],
+  'surge_response':       ['fleet_data', 'demand_predictor', 'database_writer'],
+  'dispatch_override':    ['fleet_data', 'database_writer'],
+  'maintenance_alert':    ['fleet_data', 'knowledge_base', 'database_writer'],
 };
 
 function buildDomainAgentFlow(wf) {
@@ -1627,7 +1816,12 @@ async function openWorkflowModal(id) {
   try {
     const wf = await fetchApi('/api/workflows/' + id);
     const summary = wf.enriched_summary || wf.summary || '\u2014';
-    const TYPE_LABELS = {};
+    const TYPE_LABELS = {
+      'rebalancing_request': 'Rebalancing',
+      'surge_response': 'Surge Response',
+      'dispatch_override': 'Dispatch Override',
+      'maintenance_alert': 'Maintenance',
+    };
 
     // Reasoning chain from enriched workflow
     const chainHtml = renderReasoningChain(wf.reasoning_chain);
@@ -2341,152 +2535,155 @@ function drawSparkline(canvas, data, color) {
   ctx.stroke();
 }
 
-// ─── Dashboard Loader ────────────────────────────────────────────────────
+// ─── Fleet Dashboard Loader ──────────────────────────────────────────────
 async function loadDashboard() {
-  // Greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('dash-greeting-text').textContent = greeting;
-  document.getElementById('dash-greeting-sub').textContent = 'Loading operational summary...';
+  document.getElementById('dash-greeting-sub').textContent = 'Loading fleet operational summary...';
 
   showSkeleton('dash-kpis', 2);
-  showSkeleton('dash-exceptions', 3);
-  showSkeleton('dash-activity', 3);
+  showSkeleton('dash-zones', 3);
+  showSkeleton('dash-events', 3);
+  showSkeleton('dash-alerts', 3);
   document.getElementById('dash-briefing').innerHTML = '<div class="loading">Loading briefing...</div>';
 
   try {
-    // Gotcha #46: Every fetchApi in Promise.all needs .catch() so one failure doesn't break the dashboard
-    const [overview, exceptions] = await Promise.all([
-      fetchApi('/api/agent-overview').catch(() => ({kpis: {}, workflows: [], agent_actions_recent: []})),
-      fetchApi('/api/exceptions?status=open&limit=20').catch(() => []),
+    const [metrics, zones, upcoming, alerts, briefing] = await Promise.all([
+      fetchApi('/api/fleet/metrics').catch(() => ({})),
+      fetchApi('/api/fleet/zones').catch(() => []),
+      fetchApi('/api/fleet/events/upcoming').catch(() => []),
+      fetchApi('/api/fleet/surge-alerts?status=open').catch(() => []),
+      fetchApi('/api/fleet/morning-briefing').catch(() => ({})),
     ]);
 
-    const k = overview.kpis || {};
-
-    // KPIs
+    // Fleet KPIs
     document.getElementById('dash-kpis').innerHTML = `
-      <div class="kpi-card red">
-        <div class="kpi-label">Open Exceptions</div>
-        <div class="kpi-value">${fmt(k.open_exceptions || 0)}</div>
-        <div class="kpi-sub">Needs attention</div>
-        <canvas class="kpi-sparkline" id="spark-exc" style="width:100%;height:28px"></canvas>
-      </div>
       <div class="kpi-card accent">
-        <div class="kpi-label">Pending Approval</div>
-        <div class="kpi-value">${fmt(k.pending_approval || 0)}</div>
-        <div class="kpi-sub">Agent workflows</div>
-      </div>
-      <div class="kpi-card green">
-        <div class="kpi-label">Completed (7d)</div>
-        <div class="kpi-value">${fmt(k.completed_7d || 0)}</div>
-        <div class="kpi-sub">Approved workflows</div>
+        <div class="kpi-label">Fleet Utilization</div>
+        <div class="kpi-value">${fmtPct(metrics.fleet_utilization_pct || 0)}</div>
+        <div class="kpi-sub">Active vehicles / total</div>
       </div>
       <div class="kpi-card blue">
-        <div class="kpi-label">Agent Actions (24h)</div>
-        <div class="kpi-value">${fmt(k.agent_actions_24h || 0)}</div>
-        <div class="kpi-sub">Autonomous actions</div>
+        <div class="kpi-label">Avg Wait Time</div>
+        <div class="kpi-value">${fmt(metrics.avg_wait_time_min || 0, 1)} min</div>
+        <div class="kpi-sub">Rider wait time</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Rides / Vehicle / Day</div>
+        <div class="kpi-value">${fmt(metrics.rides_per_vehicle_day || 0, 1)}</div>
+        <div class="kpi-sub">Fleet efficiency</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Empty Mile Ratio</div>
+        <div class="kpi-value">${fmtPct(metrics.empty_mile_ratio || 0)}</div>
+        <div class="kpi-sub">Non-revenue miles</div>
       </div>
     `;
     animateKPIs('dash-kpis');
-    updateAgentBadge(k.pending_approval || 0);
 
-    // Sparkline placeholder data (replace with real trend data if available)
-    setTimeout(() => {
-      const sparkCanvas = document.getElementById('spark-exc');
-      if (sparkCanvas) {
-        // TODO(vibe): Replace with real trend data from API
-        const trend = Array.from({length: 7}, () => Math.floor(Math.random() * 10) + (k.open_exceptions || 3));
-        drawSparkline(sparkCanvas, trend, '#ef4444');
-      }
-    }, 200);
+    // Zone status grid
+    renderDashZones(zones);
 
-    // Exceptions
-    renderDashExceptions(exceptions);
+    // Upcoming events
+    renderDashUpcoming(upcoming);
 
-    // Recent activity
-    const actions = overview.agent_actions_recent || [];
-    renderDashActivity(actions);
+    // Surge alerts
+    renderDashAlerts(alerts);
 
-    // Greeting update
-    const excCount = k.open_exceptions || 0;
-    const pendingWf = k.pending_approval || 0;
+    // Morning briefing data
+    renderMorningBriefing(briefing);
+
+    // Update greeting
+    const alertCount = (alerts || []).length;
     const parts = [];
-    if (excCount > 0) parts.push(`${excCount} open exception${excCount > 1 ? 's' : ''}`);
-    if (pendingWf > 0) parts.push(`${pendingWf} pending workflow${pendingWf > 1 ? 's' : ''}`);
+    if (alertCount > 0) parts.push(`${alertCount} surge alert${alertCount > 1 ? 's' : ''}`);
+    if (upcoming.length > 0) parts.push(`${upcoming.length} event${upcoming.length > 1 ? 's' : ''} this week`);
     document.getElementById('dash-greeting-sub').textContent = parts.length
-      ? `You have ${parts.join(' and ')} needing attention.`
-      : 'All systems operational — no items need attention.';
+      ? `${parts.join(' and ')} need your attention.`
+      : 'All fleet operations running smoothly.';
 
   } catch(e) {
     console.error('Dashboard load error:', e);
-    document.getElementById('dash-kpis').innerHTML = '<div class="loading">Failed to load dashboard data.</div>';
+    document.getElementById('dash-kpis').innerHTML = '<div class="loading">Failed to load fleet data.</div>';
   }
 
-  // Load briefing (async, non-blocking)
   loadBriefing();
 }
 
-// ─── Exception Cards ─────────────────────────────────────────────────────
-function renderDashExceptions(exceptions) {
-  const container = document.getElementById('dash-exceptions');
-  const countBadge = document.getElementById('dash-exc-count');
-  if (countBadge) countBadge.textContent = exceptions.length;
+function renderDashZones(zones) {
+  const container = document.getElementById('dash-zones');
+  if (!zones.length) { container.innerHTML = '<div class="loading" style="padding:16px">No zone data available.</div>'; return; }
+  container.innerHTML = '<div class="zone-grid">' + zones.map(z => {
+    const demand = z.base_demand_per_hour || 0;
+    const level = demand > 30 ? 'high' : demand > 15 ? 'medium' : 'low';
+    return `<div class="zone-card zone-${level}">
+      <div class="zone-name">${escHtml(z.zone_name || z.zone_id)}</div>
+      <div class="zone-city">${escHtml(z.city)}</div>
+      <div class="zone-stats">
+        <div><span class="stat-label">Demand/hr</span><br><span class="stat-value">${fmt(demand)}</span></div>
+        <div><span class="stat-label">Capacity</span><br><span class="stat-value">${fmt(z.vehicle_capacity || 0)}</span></div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
 
-  if (!exceptions.length) {
-    container.innerHTML = '<div class="loading" style="padding:16px">No open exceptions — all clear.</div>';
-    return;
-  }
-
-  container.innerHTML = exceptions.map(exc => {
-    const truncDesc = (exc.description || '').length > 120 ? exc.description.substring(0, 120) + '...' : exc.description;
-    return `
-      <div class="exc-card exc-${exc.severity || 'medium'}">
-        <div class="exc-top">
-          <span class="exc-title">${escHtml(exc.exception_type || 'Exception')}</span>
-          ${severityBadge(exc.severity || 'medium')}
-          ${statusBadge(exc.status || 'open')}
-        </div>
-        <div class="exc-desc">${escHtml(truncDesc || '')}</div>
-        <div class="exc-meta">${escHtml(exc.entity_type || '')} ${escHtml(exc.entity_id || '')} &middot; ${timeAgo(exc.created_at)}</div>
-        <div class="exc-actions">
-          <button class="btn btn-sm btn-primary" onclick="handleException(${exc.exception_id},'acknowledged')">Acknowledge</button>
-          <button class="btn btn-sm btn-green" onclick="promptResolveException(${exc.exception_id})">Resolve</button>
-          <button class="btn btn-sm btn-steel" onclick="handleException(${exc.exception_id},'escalated')">Escalate</button>
-        </div>
-      </div>`;
+function renderDashUpcoming(events) {
+  const container = document.getElementById('dash-events');
+  if (!events.length) { container.innerHTML = '<div class="loading" style="padding:16px">No upcoming events.</div>'; return; }
+  container.innerHTML = events.slice(0, 8).map(e => {
+    const d = new Date(e.event_date);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dm = e.demand_multiplier || 1;
+    const dmClass = dm >= 2.0 ? 'score-high' : dm >= 1.5 ? 'score-medium' : 'score-low';
+    return `<div class="upcoming-event">
+      <div class="ue-date"><div class="day">${d.getDate()}</div><div class="month">${months[d.getMonth()]}</div></div>
+      <div class="ue-info">
+        <div class="ue-name">${escHtml(e.event_name)}</div>
+        <div class="ue-venue">${escHtml(e.venue)} &middot; ${escHtml(e.city)} &middot; ${fmt(e.expected_attendance)} attendees</div>
+      </div>
+      <span class="demand-score ${dmClass}">${dm.toFixed(1)}x</span>
+    </div>`;
   }).join('');
 }
 
-async function handleException(id, status, resolution) {
-  try {
-    const body = {status};
-    if (resolution) body.resolution = resolution;
-    await patchApi('/api/exceptions/' + id, body);
-    showFlash(`Exception ${status}`);
-    if (currentPage === 'dashboard') loadDashboard();
-  } catch(e) { showFlash('Failed to update exception', true); }
+function renderDashAlerts(alerts) {
+  const container = document.getElementById('dash-alerts');
+  const countBadge = document.getElementById('dash-alert-count');
+  if (countBadge) countBadge.textContent = alerts.length;
+  if (!alerts.length) { container.innerHTML = '<div class="loading" style="padding:16px">No open surge alerts.</div>'; return; }
+  container.innerHTML = alerts.slice(0, 6).map(a => `
+    <div class="exc-card exc-${a.severity || 'medium'}">
+      <div class="exc-top">
+        <span class="exc-title">${escHtml(a.zone_id)} — ${escHtml(a.event_name || 'Demand Surge')}</span>
+        ${severityBadge(a.severity || 'medium')}
+      </div>
+      <div class="exc-desc">Score: ${fmt(a.predicted_demand_score, 1)} &middot; Supply: ${fmt(a.current_supply)} vehicles</div>
+      <div class="exc-meta">${escHtml(a.city)} &middot; ${timeAgo(a.created_at)}</div>
+    </div>`).join('');
 }
 
-function promptResolveException(id) {
-  const resolution = prompt('Enter resolution notes:');
-  if (resolution !== null) handleException(id, 'resolved', resolution);
-}
-
-// ─── Recent Activity ─────────────────────────────────────────────────────
-function renderDashActivity(actions) {
-  const container = document.getElementById('dash-activity');
-  if (!actions.length) {
-    container.innerHTML = '<div class="loading" style="padding:16px">No recent agent activity.</div>';
+function renderMorningBriefing(data) {
+  const container = document.getElementById('dash-briefing');
+  if (!data || (!data.summary && !data.fleet_summary)) {
+    container.innerHTML = '<div class="loading" style="padding:16px">Briefing data unavailable.</div>';
     return;
   }
-  container.innerHTML = actions.slice(0, 10).map(a => `
-    <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>${escHtml(a.action_type || 'Action')}</strong>
-        <span>${timeAgo(a.created_at)}</span>
-      </div>
-      <div style="color:var(--text-muted);margin-top:2px">${escHtml((a.description || '').substring(0, 100))}</div>
-    </div>`).join('');
+  let html = '';
+  if (data.fleet_summary) {
+    html += `<div class="briefing-section"><h4>Fleet Status</h4><p>Active: ${fmt(data.fleet_summary.active || 0)} &middot; Charging: ${fmt(data.fleet_summary.charging || 0)} &middot; Idle: ${fmt(data.fleet_summary.idle || 0)} &middot; Maintenance: ${fmt(data.fleet_summary.maintenance || 0)}</p></div>`;
+  }
+  if (data.pending_alerts) {
+    html += `<div class="briefing-section"><h4>Pending Alerts</h4><p>${fmt(data.pending_alerts)} surge alert${data.pending_alerts !== 1 ? 's' : ''} need attention</p></div>`;
+  }
+  if (data.today_events && data.today_events.length) {
+    html += `<div class="briefing-section"><h4>Today's Events</h4><p>${data.today_events.map(e => escHtml(e.event_name)).join(', ')}</p></div>`;
+  }
+  if (data.yesterday_kpis) {
+    const yk = data.yesterday_kpis;
+    html += `<div class="briefing-section"><h4>Yesterday's Performance</h4><p>Total rides: ${fmt(yk.total_rides || 0)} &middot; Avg wait: ${fmt(yk.avg_wait || 0, 1)} min &middot; Revenue: ${fmtUsd(yk.total_revenue || 0)}</p></div>`;
+  }
+  container.innerHTML = html || '<div class="loading">No briefing data.</div>';
 }
 
 // ─── Briefing ────────────────────────────────────────────────────────────
@@ -2537,6 +2734,226 @@ async function loadBriefingStream() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   FLEET STATUS PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+let _fleetFiltersLoaded = false;
+
+async function loadFleet() {
+  // Initialize 3D viewer on first load
+  if (typeof window.initFleet3DViewer === 'function') {
+    try { window.initFleet3DViewer(); } catch(e) { console.warn('3D viewer init:', e); }
+  }
+
+  if (!_fleetFiltersLoaded) {
+    try {
+      const filters = await fetchApi('/api/fleet/filters');
+      populateSelect('fleet-city-filter', filters.cities || [], 'All Cities');
+      populateSelect('fleet-status-filter', filters.statuses || [], 'All Statuses');
+      populateSelect('fleet-zone-filter', filters.zones || [], 'All Zones');
+      _fleetFiltersLoaded = true;
+    } catch(e) { console.warn('Fleet filters failed:', e); }
+  }
+
+  const city = document.getElementById('fleet-city-filter').value;
+  const status = document.getElementById('fleet-status-filter').value;
+  const zone = document.getElementById('fleet-zone-filter').value;
+
+  const params = new URLSearchParams();
+  if (city) params.set('city', city);
+  if (status) params.set('status', status);
+  if (zone) params.set('zone', zone);
+
+  const tbody = document.getElementById('fleet-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading">Loading vehicles...</div></td></tr>';
+
+  try {
+    const vehicles = await fetchApi('/api/fleet/vehicles?' + params.toString());
+    if (!vehicles.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="loading">No vehicles match filters.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = vehicles.map(v => {
+      const battPct = v.battery_pct || 0;
+      const battClass = battPct >= 60 ? 'high' : battPct >= 30 ? 'medium' : 'low';
+      return `<tr class="clickable-row" onclick="openVehicleDetail('${escHtml(v.vehicle_id)}'); if(window.selectVehicle3D) window.selectVehicle3D('${escHtml(v.vehicle_id)}')">
+        <td><strong>${escHtml(v.vehicle_id)}</strong></td>
+        <td>${escHtml(v.city)}</td>
+        <td>${escHtml(v.current_zone)}</td>
+        <td>${statusBadge(v.status)}</td>
+        <td><div class="battery-bar"><div class="bar"><div class="bar-fill ${battClass}" style="width:${battPct}%"></div></div><span class="bar-pct">${battPct}%</span></div></td>
+        <td>${fmt(v.rides_today)}</td>
+        <td>${timeAgo(v.last_ride_at)}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('Fleet load error:', e);
+    tbody.innerHTML = '<tr><td colspan="7"><div class="loading">Failed to load fleet data.</div></td></tr>';
+  }
+}
+
+async function openVehicleDetail(vehicleId) {
+  try {
+    const data = await fetchApi('/api/fleet/vehicles/' + vehicleId);
+    const v = data.vehicle || data;
+    const notes = data.notes || [];
+    const rides = data.recent_rides || [];
+
+    let html = `
+      <div class="dp-field"><label>Vehicle ID</label><div class="val">${escHtml(v.vehicle_id)}</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="dp-field"><label>City</label><div class="val">${escHtml(v.city)}</div></div>
+        <div class="dp-field"><label>Zone</label><div class="val">${escHtml(v.current_zone)}</div></div>
+        <div class="dp-field"><label>Status</label><div class="val">${statusBadge(v.status)}</div></div>
+        <div class="dp-field"><label>Battery</label><div class="val"><div class="battery-bar"><div class="bar"><div class="bar-fill ${(v.battery_pct||0)>=60?'high':(v.battery_pct||0)>=30?'medium':'low'}" style="width:${v.battery_pct||0}%"></div></div><span class="bar-pct">${v.battery_pct||0}%</span></div></div></div>
+        <div class="dp-field"><label>Rides Today</label><div class="val">${fmt(v.rides_today)}</div></div>
+        <div class="dp-field"><label>Model</label><div class="val">${escHtml(v.model || '\u2014')}</div></div>
+      </div>`;
+
+    if (rides.length) {
+      html += '<div style="margin-top:16px"><label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:.5px;font-weight:700">Recent Rides</label>';
+      html += rides.slice(0, 5).map(r => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">${escHtml(r.pickup_zone)} &rarr; ${escHtml(r.dropoff_zone)} &middot; ${fmtUsd(r.fare_usd)} &middot; ${timeAgo(r.request_time)}</div>`).join('');
+      html += '</div>';
+    }
+
+    if (notes.length) {
+      html += '<div style="margin-top:16px"><label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:.5px;font-weight:700">Notes</label>';
+      html += notes.slice(0, 5).map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">${escHtml(n.content)} <span style="color:var(--text-muted)">&middot; ${timeAgo(n.created_at)}</span></div>`).join('');
+      html += '</div>';
+    }
+
+    html += `<div style="margin-top:16px"><button class="btn btn-sm btn-primary" onclick="askAI('Tell me about vehicle ${escHtml(v.vehicle_id)} — status, recent performance, and any issues')">Ask AI about this vehicle</button></div>`;
+
+    openDetail('Vehicle ' + vehicleId, html);
+  } catch(e) { showFlash('Failed to load vehicle detail', true); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EVENTS PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+let _eventsFiltersLoaded = false;
+
+async function loadEvents() {
+  if (!_eventsFiltersLoaded) {
+    try {
+      const filters = await fetchApi('/api/fleet/filters');
+      populateSelect('events-city-filter', filters.cities || [], 'All Cities');
+      populateSelect('events-type-filter', filters.event_types || [], 'All Types');
+      _eventsFiltersLoaded = true;
+    } catch(e) { console.warn('Events filters failed:', e); }
+  }
+
+  const city = document.getElementById('events-city-filter').value;
+  const eventType = document.getElementById('events-type-filter').value;
+
+  const params = new URLSearchParams();
+  if (city) params.set('city', city);
+  if (eventType) params.set('event_type', eventType);
+
+  const container = document.getElementById('events-list');
+  container.innerHTML = '<div class="loading">Loading events...</div>';
+
+  try {
+    const events = await fetchApi('/api/fleet/events?' + params.toString());
+    if (!events.length) {
+      container.innerHTML = '<div class="loading">No events match filters.</div>';
+      return;
+    }
+    container.innerHTML = events.map(e => {
+      const dm = e.demand_multiplier || 1;
+      const dmClass = dm >= 2.0 ? 'score-high' : dm >= 1.5 ? 'score-medium' : 'score-low';
+      const d = new Date(e.event_date);
+      const dateStr = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+      const isUpcoming = d >= new Date(new Date().toDateString());
+      return `<div class="event-card" ${isUpcoming ? 'style="border-left-color:var(--green)"' : ''}>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="event-name">${escHtml(e.event_name)}</div>
+            <div class="event-meta">${escHtml(e.venue)} &middot; ${escHtml(e.city)} &middot; ${escHtml(e.event_type || '')}</div>
+          </div>
+          <span class="demand-score ${dmClass}">${dm.toFixed(1)}x demand</span>
+        </div>
+        <div class="event-meta" style="margin-top:6px">${dateStr} &middot; ${escHtml(e.start_time || '')} - ${escHtml(e.end_time || '')} &middot; ${fmt(e.expected_attendance)} expected</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    console.error('Events load error:', e);
+    container.innerHTML = '<div class="loading">Failed to load events.</div>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEMAND FORECAST PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+let _demandFiltersLoaded = false;
+let _demandHorizon = '';
+
+function setDemandHorizon(btn, horizon) {
+  _demandHorizon = horizon;
+  document.querySelectorAll('#demand-horizon button').forEach(b => b.classList.toggle('active', b === btn));
+  loadDemand();
+}
+
+async function loadDemand() {
+  if (!_demandFiltersLoaded) {
+    try {
+      const filters = await fetchApi('/api/fleet/filters');
+      populateSelect('demand-city-filter', filters.cities || [], 'All Cities');
+      populateSelect('demand-zone-filter', filters.zones || [], 'All Zones');
+      _demandFiltersLoaded = true;
+    } catch(e) { console.warn('Demand filters failed:', e); }
+  }
+
+  const city = document.getElementById('demand-city-filter').value;
+  const zone = document.getElementById('demand-zone-filter').value;
+
+  const params = new URLSearchParams();
+  if (city) params.set('city', city);
+  if (zone) params.set('zone_id', zone);
+  if (_demandHorizon) params.set('horizon', _demandHorizon);
+
+  const tbody = document.getElementById('demand-tbody');
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading">Loading demand forecasts...</div></td></tr>';
+
+  try {
+    const forecasts = await fetchApi('/api/fleet/demand?' + params.toString());
+    if (!forecasts.length) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="loading">No forecasts match filters.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = forecasts.map(f => {
+      const score = f.demand_score || 0;
+      const scoreClass = score >= 0.7 ? 'score-high' : score >= 0.4 ? 'score-medium' : 'score-low';
+      const d = new Date(f.forecast_date);
+      const dateStr = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+      return `<tr>
+        <td><strong>${escHtml(f.zone_id)}</strong></td>
+        <td>${escHtml(f.city)}</td>
+        <td>${dateStr}</td>
+        <td>${f.hour != null ? f.hour + ':00' : '\u2014'}</td>
+        <td>${fmt(f.predicted_demand)}</td>
+        <td>${fmt(f.predicted_supply)}</td>
+        <td><span class="demand-score ${scoreClass}">${(score * 100).toFixed(0)}%</span></td>
+        <td>${f.confidence ? (f.confidence * 100).toFixed(0) + '%' : '\u2014'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('Demand load error:', e);
+    tbody.innerHTML = '<tr><td colspan="8"><div class="loading">Failed to load demand data.</div></td></tr>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTER UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+function populateSelect(selectId, options, placeholder) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>` + options.map(o => `<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');
+  sel.value = current;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    WORKFLOW ENRICHMENT — Reasoning chain + enriched summary in modal
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -2568,6 +2985,813 @@ function renderReasoningChain(chain) {
    ═══════════════════════════════════════════════════════════════════════════ */
 try { lucide.createIcons(); } catch(e) { console.warn('Lucide not loaded:', e); }
 loadDashboard();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     THREE.JS 3D VEHICLE VIEWER MODULE
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ── State ────────────────────────────────────────────────────────────────── */
+let scene, camera, renderer, css2dRenderer, controls, zooxModel, animId;
+let speedLabel, statusDot, coordsLabel;
+let currentVehicleId = null;
+let telemetrySource = null;
+let _initialized = false;
+let _groundGrid;
+
+/* ── Color palette (Zoox brand — matched to reference photo) ─────────────── */
+const COL = {
+  body:       0xA8C4B8,  // Blue-green metallic (slightly darker, more blue than before)
+  bodyDark:   0x6A8880,  // Darker roof / upper body accent
+  platform:   0x1A1D1F,  // Black lower body / skateboard
+  trim:       0x2A2D30,  // Dark charcoal accents
+  glass:      0x0A1218,  // Very deep tinted glass (nearly black)
+  sensor:     0x1E2124,  // Sensor pods — near-black
+  sensorRing: 0x3A3E42,  // Sensor ring detail
+  wheel:      0x1A1A1A,  // Tire rubber
+  hubSilver:  0xD8E0E4,  // Bright silver — propeller blade spokes
+  hubDark:    0x3A3E42,  // Hub center
+  light:      0xFFFFFF,  // Light bars (emissive)
+  lightAmber: 0xFFCC44,  // Amber accent light
+  doorFrame:  0x1A1C1E,  // Door frame surround (very dark)
+  ground:     0xD3E4DF,  // Ground plane (sage)
+};
+
+/* ── Helper: rounded box with smooth subdivision ────────────────────────── */
+function makeRoundedBox(w, h, d, r, segW, segH, segD) {
+  const geo = new THREE.BoxGeometry(w, h, d, segW || 8, segH || 8, segD || 8);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const hw = w/2, hh = h/2, hd = d/2;
+    const dx = Math.max(0, Math.abs(x) - (hw - r));
+    const dy = Math.max(0, Math.abs(y) - (hh - r));
+    const dz = Math.max(0, Math.abs(z) - (hd - r));
+    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    if (dist > r && dist > 0) {
+      const s = r / dist;
+      if (dx > 0) x = Math.sign(x) * ((hw - r) + dx * s);
+      if (dy > 0) y = Math.sign(y) * ((hh - r) + dy * s);
+      if (dz > 0) z = Math.sign(z) * ((hd - r) + dz * s);
+    }
+    pos.setXYZ(i, x, y, z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BUILD ZOOX ROBOTAXI MODEL — v3 reference-matched
+   Bi-directional pod: 3.63m L × 1.83m W × 1.94m H
+   Key improvements: MeshPhysicalMaterial w/ clearcoat, env-map reflections,
+   much larger wheels (~42% of height) with propeller-blade spokes,
+   bigger glass panels, smoother body shape, better proportions.
+   ══════════════════════════════════════════════════════════════════════════════ */
+function buildZooxModel() {
+  const group = new THREE.Group();
+
+  /* ── Material helpers ──────────────────────────────────────────────────── */
+  const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({
+    color, flatShading: false, ...opts
+  });
+
+  // Automotive paint — clearcoat for realistic car finish
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color: COL.body, roughness: 0.18, metalness: 0.15,
+    clearcoat: 1.0, clearcoatRoughness: 0.06,
+    envMapIntensity: 2.0, flatShading: false,
+  });
+  const bodyDarkMat = new THREE.MeshPhysicalMaterial({
+    color: COL.bodyDark, roughness: 0.22, metalness: 0.15,
+    clearcoat: 0.8, clearcoatRoughness: 0.1,
+    envMapIntensity: 1.5, flatShading: false,
+  });
+
+  // Glass — transmission for see-through effect
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: COL.glass, roughness: 0.0, metalness: 0.0,
+    transmission: 0.85, thickness: 0.02, ior: 1.52,
+    envMapIntensity: 1.0, flatShading: false,
+  });
+
+  /* ── Dimensions (matched to reference photo proportions) ───────────────── */
+  const W = 1.83, L = 3.63, H = 1.94;
+  const wheelR = 0.42;          // MUCH bigger — ~42% of vehicle height
+  const tireW = 0.22;           // wider tires
+  const platformH = 0.30;       // thinner platform — body sits lower
+  const groundClearance = 0.14;
+  const platY = groundClearance + wheelR * 0.15;
+  const cabinH = H - platformH - groundClearance;
+  const cabinY = platY + platformH;
+  const roofY = cabinY + cabinH;
+
+  /* ══ 1. LOWER BODY / PLATFORM (dark, wraps under and around wheels) ════ */
+  const platGeo = makeRoundedBox(W + 0.04, platformH, L, 0.20, 12, 6, 14);
+  const platMesh = new THREE.Mesh(platGeo, mat(COL.platform, { roughness: 0.6, metalness: 0.15 }));
+  platMesh.position.y = platY + platformH / 2;
+  platMesh.castShadow = true;
+  group.add(platMesh);
+
+  /* ══ 2. UPPER CABIN — smooth capsule body ══════════════════════════════ */
+  const cabinGeo = makeRoundedBox(W, cabinH, L - 0.06, 0.42, 16, 12, 16);
+  const cabinMesh = new THREE.Mesh(cabinGeo, bodyMat);
+  cabinMesh.position.y = cabinY + cabinH / 2;
+  cabinMesh.castShadow = true;
+  group.add(cabinMesh);
+
+  /* ══ 3. END FACE — dark recessed panel (NOT bulky extruded cap) ════════ */
+  // The real Zoox end face is a flat dark panel with sensors/lights mounted on it
+  // Body cabin rounds off naturally — no thick extrusion needed
+  const endFaceMat = mat(COL.platform, { roughness: 0.5, metalness: 0.2 });
+  for (const end of [-1, 1]) {
+    // Dark recessed end face panel (fills the face area below the windshield)
+    const efW = W * 0.88, efH = cabinH * 0.38;
+    const efGeo = new THREE.BoxGeometry(efW, efH, 0.03);
+    const efMesh = new THREE.Mesh(efGeo, endFaceMat);
+    efMesh.position.set(0, cabinY + efH / 2, end * (L / 2 + 0.01));
+    group.add(efMesh);
+
+    // Camera/sensor module (rectangular unit centered on face)
+    const camGeo = makeRoundedBox(0.14, 0.09, 0.05, 0.02, 4, 4, 4);
+    const camMesh = new THREE.Mesh(camGeo, mat(COL.sensor, { roughness: 0.2, metalness: 0.4 }));
+    camMesh.position.set(0, cabinY + efH * 0.65, end * (L / 2 + 0.03));
+    group.add(camMesh);
+    // Camera lens
+    const camLensGeo = new THREE.BoxGeometry(0.06, 0.035, 0.01);
+    const camLensMesh = new THREE.Mesh(camLensGeo, mat(0x111111, { roughness: 0.05, metalness: 0.9 }));
+    camLensMesh.position.set(0, cabinY + efH * 0.65, end * (L / 2 + 0.055));
+    group.add(camLensMesh);
+
+    // Small "ZOOX" badge area near bottom of face
+    const badgeGeo = new THREE.BoxGeometry(0.10, 0.04, 0.008);
+    const badgeMesh = new THREE.Mesh(badgeGeo, mat(0xFFFFFF, {
+      emissive: 0xFFFFFF, emissiveIntensity: 0.15, roughness: 0.3,
+    }));
+    badgeMesh.position.set(-efW * 0.35, cabinY + 0.06, end * (L / 2 + 0.02));
+    group.add(badgeMesh);
+  }
+
+  /* ══ 4. GLASS DOORS (massive — covers ~70% of side) ════════════════════ */
+  const glassH = cabinH * 0.78;
+  const glassL = L * 0.56;
+  const glassY = cabinY + cabinH * 0.04;
+  for (const side of [-1, 1]) {
+    // Main glass panel
+    const gGeo = new THREE.BoxGeometry(0.015, glassH, glassL);
+    const gMesh = new THREE.Mesh(gGeo, glassMat);
+    gMesh.position.set(side * (W / 2 + 0.005), glassY + glassH / 2, 0);
+    group.add(gMesh);
+
+    // Dark frame surround
+    const frameMat = mat(COL.doorFrame, { roughness: 0.5, metalness: 0.3 });
+    // Top + bottom horizontal frames
+    for (const fy of [glassY - 0.02, glassY + glassH + 0.02]) {
+      const fGeo = new THREE.BoxGeometry(0.022, 0.04, glassL + 0.08);
+      const fMesh = new THREE.Mesh(fGeo, frameMat);
+      fMesh.position.set(side * (W / 2 + 0.003), fy, 0);
+      group.add(fMesh);
+    }
+    // Left + right vertical frames
+    for (const fEnd of [-1, 1]) {
+      const fvGeo = new THREE.BoxGeometry(0.022, glassH + 0.12, 0.04);
+      const fvMesh = new THREE.Mesh(fvGeo, frameMat);
+      fvMesh.position.set(side * (W / 2 + 0.003), glassY + glassH / 2, fEnd * (glassL / 2 + 0.02));
+      group.add(fvMesh);
+    }
+    // Center door seam + two additional vertical seams (3-panel look)
+    for (const sz of [0, -glassL * 0.33, glassL * 0.33]) {
+      const seam = new THREE.BoxGeometry(0.024, glassH * 0.92, 0.006);
+      const seamMesh = new THREE.Mesh(seam, frameMat);
+      seamMesh.position.set(side * (W / 2 + 0.004), glassY + glassH / 2, sz);
+      group.add(seamMesh);
+    }
+  }
+
+  /* ══ 5. WINDSHIELDS — large glass covering upper 55% of each end face ══ */
+  // The real Zoox has huge windshields that wrap from side glass around the corner
+  for (const end of [-1, 1]) {
+    const wsW = W * 0.82;                     // almost full width
+    const wsH = cabinH * 0.55;                // upper 55% of cabin height
+    const wsY = cabinY + cabinH * 0.38;       // starts at ~38% up the cabin
+
+    // Main windshield glass panel
+    const wsGeo = new THREE.BoxGeometry(wsW, wsH, 0.018);
+    const wsMesh = new THREE.Mesh(wsGeo, glassMat);
+    wsMesh.position.set(0, wsY + wsH / 2, end * (L / 2 + 0.012));
+    group.add(wsMesh);
+
+    // Windshield frame (dark surround)
+    const wsfMat = mat(COL.doorFrame, { roughness: 0.5, metalness: 0.3 });
+    // Top frame
+    const wsfTopGeo = new THREE.BoxGeometry(wsW + 0.06, 0.035, 0.025);
+    const wsfTop = new THREE.Mesh(wsfTopGeo, wsfMat);
+    wsfTop.position.set(0, wsY + wsH + 0.015, end * (L / 2 + 0.008));
+    group.add(wsfTop);
+    // Bottom frame
+    const wsfBot = new THREE.Mesh(wsfTopGeo.clone(), wsfMat);
+    wsfBot.position.set(0, wsY - 0.015, end * (L / 2 + 0.008));
+    group.add(wsfBot);
+    // Side frames
+    for (const sx of [-1, 1]) {
+      const wsfSideGeo = new THREE.BoxGeometry(0.04, wsH + 0.08, 0.025);
+      const wsfSide = new THREE.Mesh(wsfSideGeo, wsfMat);
+      wsfSide.position.set(sx * (wsW / 2 + 0.02), wsY + wsH / 2, end * (L / 2 + 0.008));
+      group.add(wsfSide);
+    }
+
+    // Red indicator light on each side of windshield (small)
+    const redLightMat = new THREE.MeshStandardMaterial({
+      color: 0xFF2222, emissive: 0xFF2222, emissiveIntensity: 0.6, roughness: 0.1,
+    });
+    for (const sx of [-1, 1]) {
+      const rlGeo = new THREE.BoxGeometry(0.015, 0.04, 0.012);
+      const rlMesh = new THREE.Mesh(rlGeo, redLightMat);
+      rlMesh.position.set(sx * (wsW / 2 + 0.04), wsY + wsH * 0.5, end * (L / 2 + 0.015));
+      group.add(rlMesh);
+    }
+  }
+
+  /* ══ 6. HEADLIGHTS — horizontal LED bar + corner units (both ends) ═════ */
+  // The real Zoox has a slim horizontal light bar spanning the face width
+  // with distinct rectangular headlight units at each corner
+  const lightMat = new THREE.MeshStandardMaterial({
+    color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveIntensity: 1.0, roughness: 0.05,
+  });
+  const amberMat = new THREE.MeshStandardMaterial({
+    color: COL.lightAmber, emissive: COL.lightAmber, emissiveIntensity: 0.7, roughness: 0.1,
+  });
+  for (const end of [-1, 1]) {
+    const lightY = cabinY + cabinH * 0.28;  // positioned in the dark lower face area
+
+    // Slim horizontal light bar (full width of dark face area)
+    const barW = W * 0.78;
+    const barGeo = new THREE.BoxGeometry(barW, 0.028, 0.012);
+    const barMesh = new THREE.Mesh(barGeo, lightMat);
+    barMesh.position.set(0, lightY, end * (L / 2 + 0.03));
+    group.add(barMesh);
+
+    // Round headlight units at each corner (50% bigger, circular)
+    const hlRadius = 0.065;  // 50% bigger than before
+    for (const sx of [-1, 1]) {
+      // Dark circular headlight housing (recessed bezel)
+      const hlHousGeo = new THREE.CylinderGeometry(hlRadius + 0.012, hlRadius + 0.012, 0.03, 24);
+      const hlHousMesh = new THREE.Mesh(hlHousGeo, mat(COL.trim, { roughness: 0.3, metalness: 0.4 }));
+      hlHousMesh.rotation.x = Math.PI / 2;
+      hlHousMesh.position.set(sx * (barW / 2 - 0.02), lightY, end * (L / 2 + 0.02));
+      group.add(hlHousMesh);
+      // Inner round LED element (white glow)
+      const hlLedGeo = new THREE.CircleGeometry(hlRadius, 24);
+      const hlLedMesh = new THREE.Mesh(hlLedGeo, lightMat);
+      hlLedMesh.rotation.y = end > 0 ? 0 : Math.PI;
+      hlLedMesh.position.set(sx * (barW / 2 - 0.02), lightY, end * (L / 2 + 0.036));
+      group.add(hlLedMesh);
+    }
+
+    // Small round amber turn indicators below the main light bar
+    for (const sx of [-1, 1]) {
+      const amberGeo = new THREE.CircleGeometry(0.022, 16);
+      const amberMesh = new THREE.Mesh(amberGeo, amberMat);
+      amberMesh.rotation.y = end > 0 ? 0 : Math.PI;
+      amberMesh.position.set(sx * (barW / 2 - 0.02), lightY - 0.06, end * (L / 2 + 0.036));
+      group.add(amberMesh);
+    }
+  }
+
+  /* ══ 7. SPEAKER GRILLE + ventilation strip (both ends) ═════════════════ */
+  for (const end of [-1, 1]) {
+    // Horizontal grille strip below windshield, above lights
+    const grY = cabinY + cabinH * 0.35;
+    const grGeo = new THREE.BoxGeometry(W * 0.65, 0.018, 0.02);
+    const grMesh = new THREE.Mesh(grGeo, mat(COL.trim, { roughness: 0.8 }));
+    grMesh.position.set(0, grY, end * (L / 2 + 0.02));
+    group.add(grMesh);
+    // Thin decorative line above grille
+    const lineGeo = new THREE.BoxGeometry(W * 0.70, 0.005, 0.015);
+    const lineMesh = new THREE.Mesh(lineGeo, mat(COL.sensorRing, { roughness: 0.3, metalness: 0.5 }));
+    lineMesh.position.set(0, grY + 0.015, end * (L / 2 + 0.018));
+    group.add(lineMesh);
+  }
+
+  /* ══ 8. SENSOR PODS (4 corners — stalks on roof, positioned over body) ═ */
+  const sensorMat = mat(COL.sensor, { roughness: 0.3, metalness: 0.25 });
+  const sensorRingMat = mat(COL.sensorRing, { roughness: 0.25, metalness: 0.4 });
+  const podPositions = [
+    [-(W / 2 - 0.18),  (L / 2 - 0.22)],
+    [ (W / 2 - 0.18),  (L / 2 - 0.22)],
+    [-(W / 2 - 0.18), -(L / 2 - 0.22)],
+    [ (W / 2 - 0.18), -(L / 2 - 0.22)],
+  ];
+  for (const [px, pz] of podPositions) {
+    // Base plate on roof
+    const baseGeo = new THREE.CylinderGeometry(0.04, 0.045, 0.012, 16);
+    const baseMesh = new THREE.Mesh(baseGeo, sensorMat);
+    baseMesh.position.set(px, roofY + 0.006, pz);
+    group.add(baseMesh);
+
+    // Stalk rising from base
+    const stalkH = 0.07;
+    const stalkGeo = new THREE.CylinderGeometry(0.018, 0.028, stalkH, 10);
+    const stalkMesh = new THREE.Mesh(stalkGeo, sensorMat);
+    stalkMesh.position.set(px, roofY + 0.012 + stalkH / 2, pz);
+    group.add(stalkMesh);
+
+    // Pod body on top of stalk
+    const podW = 0.14, podH = 0.08, podD = 0.10;
+    const podTopY = roofY + 0.012 + stalkH;
+    const podGeo = makeRoundedBox(podW, podH, podD, 0.025, 6, 6, 6);
+    const podMesh = new THREE.Mesh(podGeo, sensorMat);
+    podMesh.position.set(px, podTopY + podH / 2, pz);
+    podMesh.castShadow = true;
+    group.add(podMesh);
+
+    // Sensor band (horizontal ring around pod)
+    const bandGeo = new THREE.BoxGeometry(podW + 0.01, 0.014, podD + 0.01);
+    const bandMesh = new THREE.Mesh(bandGeo, sensorRingMat);
+    bandMesh.position.set(px, podTopY + podH * 0.55, pz);
+    group.add(bandMesh);
+
+    // Camera lens dots (2 per pod)
+    const lensMat = mat(0x111111, { roughness: 0.1, metalness: 0.8 });
+    for (let a = 0; a < 2; a++) {
+      const lx = px + (a === 0 ? -podW * 0.3 : podW * 0.3);
+      const lensGeo = new THREE.SphereGeometry(0.012, 8, 8);
+      const lensMesh = new THREE.Mesh(lensGeo, lensMat);
+      lensMesh.position.set(lx, podTopY + podH * 0.7, pz + (pz > 0 ? podD / 2 + 0.005 : -podD / 2 - 0.005));
+      group.add(lensMesh);
+    }
+  }
+
+  /* ══ 9. WHEELS — big propeller-blade spokes (matched to ref photo) ═════ */
+  // In the wheel group: axle = X axis, wheel face = YZ plane
+  // Tire torus: rotation.y=PI/2 makes ring around X axis
+  const wheelPositions = [
+    [-(W / 2 + 0.02),  (L / 2 - 0.58)],
+    [ (W / 2 + 0.02),  (L / 2 - 0.58)],
+    [-(W / 2 + 0.02), -(L / 2 - 0.58)],
+    [ (W / 2 + 0.02), -(L / 2 - 0.58)],
+  ];
+  const tireMat = mat(COL.wheel, { roughness: 0.85 });
+  const rimMat = mat(COL.hubDark, { roughness: 0.3, metalness: 0.6 });
+  const spokeMat = new THREE.MeshPhysicalMaterial({
+    color: COL.hubSilver, roughness: 0.12, metalness: 0.65,
+    clearcoat: 0.6, clearcoatRoughness: 0.08, envMapIntensity: 2.0,
+  });
+  const hubCenterMat = mat(COL.hubDark, { roughness: 0.25, metalness: 0.5 });
+
+  for (const [wx, wz] of wheelPositions) {
+    const side = wx > 0 ? 1 : -1; // which side of vehicle
+    const wGroup = new THREE.Group();
+    wGroup.position.set(wx, wheelR + groundClearance, wz);
+
+    // TIRE — LatheGeometry for seamless profile (no gaps)
+    // Profile: inner rim edge → sidewall bulge → tread surface → other sidewall → inner rim
+    const rimInnerR = wheelR * 0.60;  // where rim meets tire
+    const treadHalf = tireW * 0.32;   // half of tread width
+    const bulgeR = wheelR + 0.008;    // slight sidewall bulge beyond tread
+    const tireProfile = [];
+    // Outer sidewall (left, x = -tireW/2 to -treadHalf)
+    tireProfile.push(new THREE.Vector2(rimInnerR,  -tireW / 2));         // inner rim edge
+    tireProfile.push(new THREE.Vector2(rimInnerR + 0.04, -tireW / 2 + 0.01)); // lower sidewall
+    tireProfile.push(new THREE.Vector2(wheelR - 0.02, -treadHalf - 0.03));  // mid sidewall
+    tireProfile.push(new THREE.Vector2(bulgeR, -treadHalf - 0.005));     // shoulder bulge
+    // Tread surface (flat across top)
+    tireProfile.push(new THREE.Vector2(wheelR, -treadHalf));             // tread edge left
+    tireProfile.push(new THREE.Vector2(wheelR,  treadHalf));             // tread edge right
+    // Outer sidewall (right, x = +treadHalf to +tireW/2)
+    tireProfile.push(new THREE.Vector2(bulgeR,  treadHalf + 0.005));
+    tireProfile.push(new THREE.Vector2(wheelR - 0.02,  treadHalf + 0.03));
+    tireProfile.push(new THREE.Vector2(rimInnerR + 0.04, tireW / 2 - 0.01));
+    tireProfile.push(new THREE.Vector2(rimInnerR,   tireW / 2));         // inner rim edge
+
+    const tireGeo = new THREE.LatheGeometry(tireProfile, 48);
+    // LatheGeometry revolves around Y axis — rotate so axle is X
+    const tireMesh = new THREE.Mesh(tireGeo, tireMat);
+    tireMesh.rotation.z = Math.PI / 2;
+    tireMesh.castShadow = true;
+    wGroup.add(tireMesh);
+
+    const rimInnerRUsed = rimInnerR; // save for fender reference
+
+    // Dark metallic rim ring (visible between tire and spokes)
+    const rimRingGeo = new THREE.TorusGeometry(rimInnerR * 1.04, 0.016, 10, 40);
+    const rimRingMesh = new THREE.Mesh(rimRingGeo, rimMat);
+    rimRingMesh.rotation.y = Math.PI / 2;
+    rimRingMesh.position.x = side * 0.01;
+    wGroup.add(rimRingMesh);
+
+    // Small center hub disc (dark, just the center — NOT covering spokes)
+    const hubR = 0.065;
+    const hubGeo = new THREE.CylinderGeometry(hubR, hubR, 0.05, 20);
+    const hubMesh = new THREE.Mesh(hubGeo, hubCenterMat);
+    hubMesh.rotation.z = Math.PI / 2;
+    hubMesh.position.x = side * 0.02;
+    wGroup.add(hubMesh);
+
+    // 4 PROPELLER-BLADE SPOKES — bold wide paddles (matched to reference)
+    // Using BoxGeometry for reliable positioning in the YZ wheel face plane
+    const bladeReach = wheelR * 0.65;   // how far blade extends from center
+    const bladeWidth = wheelR * 0.38;   // tangential width (wide paddle)
+    const bladeThick = 0.042;           // thickness along axle
+
+    for (let s = 0; s < 4; s++) {
+      const angle = (s / 4) * Math.PI * 2 + Math.PI / 7;
+
+      // Wide paddle blade: thick=X(axle), length=Y(radial), width=Z(tangential)
+      const bladeGeo = new THREE.BoxGeometry(bladeThick, bladeReach, bladeWidth, 1, 4, 4);
+      // Taper the blade: narrow at center, wide in middle, narrow at tip
+      const bpos = bladeGeo.attributes.position;
+      for (let i = 0; i < bpos.count; i++) {
+        const y = bpos.getY(i);                     // radial position
+        const t = (y + bladeReach / 2) / bladeReach; // 0=center, 1=tip
+        // Bell curve taper: max width at t=0.45
+        const taper = Math.sin(t * Math.PI) * 1.1;
+        const scale = Math.max(0.15, Math.min(1.0, taper));
+        bpos.setZ(i, bpos.getZ(i) * scale);
+        // Slight twist for propeller effect
+        const twist = t * 0.25;
+        const oz = bpos.getZ(i);
+        const ox = bpos.getX(i);
+        bpos.setX(i, ox * Math.cos(twist) - oz * Math.sin(twist) * 0.15);
+      }
+      bladeGeo.computeVertexNormals();
+
+      const bladeMesh = new THREE.Mesh(bladeGeo, spokeMat);
+      // Offset radially: center of blade at half its length from wheel center
+      bladeMesh.position.set(side * 0.025, bladeReach / 2 + 0.03, 0);
+
+      // Pivot rotates the blade around X (axle) to distribute 4 blades
+      const pivot = new THREE.Group();
+      pivot.add(bladeMesh);
+      pivot.rotation.x = angle;
+      wGroup.add(pivot);
+    }
+
+    // Center cap (small raised dome on outside face)
+    const capGeo = new THREE.SphereGeometry(0.04, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    const capMesh = new THREE.Mesh(capGeo, hubCenterMat);
+    capMesh.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    capMesh.position.x = side * 0.045;
+    wGroup.add(capMesh);
+
+    group.add(wGroup);
+  }
+
+  /* ══ 10. WHEEL ARCHES — flush fender flares wrapping tires consistently ═ */
+  const archMat = mat(COL.platform, { roughness: 0.5, metalness: 0.2 });
+  const fenderGap = 0.035;  // consistent gap between tire and fender
+  for (const [wx, wz] of wheelPositions) {
+    const ar = wheelR + fenderGap;    // snug around tire
+    const archW = tireW + 0.06;       // just wider than tire
+
+    // Semi-circular arch with lower lip
+    const archShape = new THREE.Shape();
+    archShape.absarc(0, 0, ar, 0, Math.PI, false);
+    archShape.lineTo(-ar, -0.05);
+    archShape.lineTo(ar, -0.05);
+    archShape.closePath();
+    const archGeo = new THREE.ExtrudeGeometry(archShape, {
+      depth: archW, bevelEnabled: true, bevelThickness: 0.015,
+      bevelSize: 0.015, bevelSegments: 3,
+    });
+    const archMesh = new THREE.Mesh(archGeo, archMat);
+    archMesh.position.set(
+      wx > 0 ? W / 2 + 0.02 : -W / 2 - 0.02,
+      wheelR + groundClearance,
+      wz - archW / 2
+    );
+    archMesh.rotation.y = wx > 0 ? -Math.PI / 2 : Math.PI / 2;
+    archMesh.rotation.z = Math.PI / 2;
+    archMesh.castShadow = true;
+    group.add(archMesh);
+
+    // Inner wheel well (dark cylinder behind the wheel)
+    const wellGeo = new THREE.CylinderGeometry(ar - 0.01, ar - 0.01, archW * 0.85, 24, 1, true, 0, Math.PI);
+    const wellMesh = new THREE.Mesh(wellGeo, mat(0x111111, { roughness: 0.9 }));
+    wellMesh.rotation.z = Math.PI / 2;
+    wellMesh.rotation.order = 'ZYX';
+    wellMesh.rotation.y = wx > 0 ? 0 : Math.PI;
+    wellMesh.position.set(wx > 0 ? wx - 0.02 : wx + 0.02, wheelR + groundClearance, wz);
+    group.add(wellMesh);
+  }
+
+  /* ══ 11. BODY PANEL LINES (seams between body panels) ══════════════════ */
+  const partMat = mat(0x1A1C1E, { roughness: 0.4 });
+  // Side parting lines (platform-to-cabin seam)
+  for (const side of [-1, 1]) {
+    const plGeo = new THREE.BoxGeometry(0.004, 0.010, L - 0.25);
+    const plMesh = new THREE.Mesh(plGeo, partMat);
+    plMesh.position.set(side * (W / 2 - 0.003), cabinY + 0.005, 0);
+    group.add(plMesh);
+  }
+  for (const end of [-1, 1]) {
+    const plGeo2 = new THREE.BoxGeometry(W - 0.25, 0.010, 0.004);
+    const plMesh2 = new THREE.Mesh(plGeo2, partMat);
+    plMesh2.position.set(0, cabinY + 0.005, end * (L / 2 - 0.003));
+    group.add(plMesh2);
+  }
+
+  /* ══ 12. ROOF — slightly darker accent + moonroof ═════════════════════ */
+  // Dark roof accent strip
+  const roofAccGeo = makeRoundedBox(W * 0.85, 0.025, L * 0.55, 0.15, 8, 2, 8);
+  const roofAccMesh = new THREE.Mesh(roofAccGeo, bodyDarkMat);
+  roofAccMesh.position.y = roofY + 0.01;
+  group.add(roofAccMesh);
+  // Moonroof glass
+  const moonGeo = new THREE.BoxGeometry(W * 0.30, 0.012, L * 0.18);
+  const moonMesh = new THREE.Mesh(moonGeo, glassMat);
+  moonMesh.position.y = roofY + 0.02;
+  group.add(moonMesh);
+
+  /* ══ 13. "ZOOX" LOGO on glass (both sides) ═════════════════════════════ */
+  // Small white rectangle as logo placeholder — visible on dark glass
+  const logoMat = new THREE.MeshStandardMaterial({
+    color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveIntensity: 0.3, roughness: 0.3,
+  });
+  for (const side of [-1, 1]) {
+    const logoGeo = new THREE.BoxGeometry(0.005, 0.08, 0.12);
+    const logoMesh = new THREE.Mesh(logoGeo, logoMat);
+    logoMesh.position.set(side * (W / 2 + 0.012), glassY + glassH * 0.55, L * 0.08);
+    group.add(logoMesh);
+  }
+
+  return group;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CSS2D TELEMETRY OVERLAYS
+   ══════════════════════════════════════════════════════════════════════════════ */
+function createOverlays() {
+  // Speed label (above car)
+  const speedDiv = document.createElement('div');
+  speedDiv.className = 'telem-label telem-speed';
+  speedDiv.innerHTML = '<span class="speed-val">0</span><span>mph</span>';
+  speedLabel = new CSS2DObject(speedDiv);
+  speedLabel.position.set(0, 3.0, 0);
+  speedLabel.visible = false;
+  scene.add(speedLabel);
+
+  // Status dot (on top of car)
+  const dotDiv = document.createElement('div');
+  dotDiv.className = 'telem-label telem-status-dot active';
+  statusDot = new CSS2DObject(dotDiv);
+  statusDot.position.set(0, 2.6, 0);
+  statusDot.visible = false;
+  scene.add(statusDot);
+
+  // Coordinates label (below car)
+  const coordDiv = document.createElement('div');
+  coordDiv.className = 'telem-label telem-coords';
+  coordDiv.textContent = '0.000000, 0.000000';
+  coordsLabel = new CSS2DObject(coordDiv);
+  coordsLabel.position.set(0, 0.1, 0);
+  coordsLabel.visible = false;
+  scene.add(coordsLabel);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SCENE INITIALIZATION
+   ══════════════════════════════════════════════════════════════════════════════ */
+function initScene() {
+  if (_initialized) return;
+  const container = document.getElementById('fleet-3d-container');
+  if (!container) return;
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = null; // transparent — CSS gradient shows through
+
+  // Camera
+  const aspect = container.clientWidth / container.clientHeight;
+  camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 100);
+  camera.position.set(5.5, 2.8, 6.5);
+  camera.lookAt(0, 0.9, 0);
+
+  // WebGL Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  container.appendChild(renderer.domElement);
+
+  // CSS2D Renderer (for HTML overlays)
+  css2dRenderer = new CSS2DRenderer();
+  css2dRenderer.setSize(container.clientWidth, container.clientHeight);
+  css2dRenderer.domElement.style.position = 'absolute';
+  css2dRenderer.domElement.style.top = '0';
+  css2dRenderer.domElement.style.left = '0';
+  css2dRenderer.domElement.style.pointerEvents = 'none';
+  container.appendChild(css2dRenderer.domElement);
+
+  // Orbit Controls
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 3;
+  controls.maxDistance = 15;
+  controls.maxPolarAngle = Math.PI / 2.1;
+  controls.target.set(0, 0.9, 0);
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+
+  const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  mainLight.position.set(5, 8, 5);
+  mainLight.castShadow = true;
+  mainLight.shadow.mapSize.width = 1024;
+  mainLight.shadow.mapSize.height = 1024;
+  mainLight.shadow.camera.near = 0.5;
+  mainLight.shadow.camera.far = 25;
+  mainLight.shadow.camera.left = -5;
+  mainLight.shadow.camera.right = 5;
+  mainLight.shadow.camera.top = 5;
+  mainLight.shadow.camera.bottom = -5;
+  mainLight.shadow.bias = -0.001;
+  scene.add(mainLight);
+
+  const fillLight = new THREE.DirectionalLight(0xCCDDFF, 0.4);
+  fillLight.position.set(-3, 4, -3);
+  scene.add(fillLight);
+
+  const rimLight = new THREE.DirectionalLight(0x64D5B3, 0.3);
+  rimLight.position.set(0, 2, -6);
+  scene.add(rimLight);
+
+  // Ground plane (receives shadows)
+  const groundGeo = new THREE.PlaneGeometry(20, 20);
+  const groundMat = new THREE.ShadowMaterial({ opacity: 0.15 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Subtle grid on ground
+  _groundGrid = new THREE.GridHelper(20, 40, 0x9aada6, 0xc2d8d0);
+  _groundGrid.material.opacity = 0.3;
+  _groundGrid.material.transparent = true;
+  scene.add(_groundGrid);
+
+  // Environment map for realistic reflections (studio lighting)
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
+  scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+  pmremGenerator.dispose();
+
+  // Build the Zoox model
+  zooxModel = buildZooxModel();
+  scene.add(zooxModel);
+
+  // Create overlay labels
+  createOverlays();
+
+  // Handle resize
+  const ro = new ResizeObserver(() => {
+    const w = container.clientWidth, h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    css2dRenderer.setSize(w, h);
+  });
+  ro.observe(container);
+
+  _initialized = true;
+  animate();
+}
+
+/* ── Animation Loop ───────────────────────────────────────────────────────── */
+function animate() {
+  animId = requestAnimationFrame(animate);
+  controls.update();
+
+  // Gentle idle rotation when no telemetry streaming
+  if (zooxModel && !telemetrySource) {
+    zooxModel.rotation.y += 0.003;
+  }
+
+  renderer.render(scene, camera);
+  css2dRenderer.render(scene, camera);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TELEMETRY STREAMING
+   ══════════════════════════════════════════════════════════════════════════════ */
+function updateTelemetryUI(data) {
+  // Update 3D overlays
+  if (speedLabel) {
+    speedLabel.element.querySelector('.speed-val').textContent = Math.round(data.speed_mph);
+    speedLabel.visible = true;
+  }
+  if (statusDot) {
+    statusDot.element.className = 'telem-label telem-status-dot ' + (data.status || 'active');
+    statusDot.visible = true;
+  }
+  if (coordsLabel) {
+    coordsLabel.element.textContent = data.latitude.toFixed(6) + ', ' + data.longitude.toFixed(6);
+    coordsLabel.visible = true;
+  }
+
+  // Stop idle rotation, set heading
+  if (zooxModel && data.speed_mph > 0.5) {
+    zooxModel.rotation.y = -data.heading_deg * (Math.PI / 180);
+  }
+
+  // Update telemetry strip gauges
+  const el = (id) => document.getElementById(id);
+  el('tg-speed').innerHTML = Math.round(data.speed_mph) + '<span class="tg-unit">mph</span>';
+  el('tg-battery').innerHTML = data.battery_pct + '<span class="tg-unit">%</span>';
+  el('tg-battery').className = 'tg-value' + (data.battery_pct < 25 ? ' warning' : '');
+  el('tg-range').innerHTML = Math.round(data.battery_range_miles) + '<span class="tg-unit">mi</span>';
+  el('tg-motor').innerHTML = Math.round(data.motor_temp_f) + '<span class="tg-unit">&deg;F</span>';
+  el('tg-motor').className = 'tg-value' + (data.motor_temp_f > 160 ? ' warning' : data.motor_temp_f > 140 ? ' degraded' : '');
+  el('tg-cabin').innerHTML = Math.round(data.cabin_temp_f) + '<span class="tg-unit">&deg;F</span>';
+  el('tg-passengers').textContent = data.passenger_count + ' / 4';
+  el('tg-lidar').textContent = data.lidar_status;
+  el('tg-lidar').className = 'tg-value ' + data.lidar_status;
+  el('tg-cameras').textContent = data.camera_status;
+  el('tg-cameras').className = 'tg-value ' + data.camera_status;
+}
+
+function startTelemetryStream(vehicleId) {
+  stopTelemetryStream();
+  currentVehicleId = vehicleId;
+
+  // Show the telemetry strip, hide empty state
+  document.getElementById('telem-strip').style.display = '';
+  const empty = document.getElementById('viewer-empty-state');
+  if (empty) empty.style.display = 'none';
+
+  // Update header
+  document.getElementById('viewer-vehicle-label').textContent = 'Live Telemetry';
+  const idEl = document.getElementById('viewer-vehicle-id');
+  idEl.textContent = vehicleId;
+  idEl.style.display = '';
+
+  // Stop idle rotation
+  if (zooxModel) zooxModel.rotation.y = 0;
+
+  // Connect SSE
+  telemetrySource = new EventSource('/api/fleet/telemetry/' + vehicleId + '/stream');
+  telemetrySource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      updateTelemetryUI(data);
+    } catch(e) { console.warn('Telemetry parse error:', e); }
+  };
+  telemetrySource.onerror = () => {
+    console.warn('Telemetry stream error, reconnecting...');
+  };
+}
+
+function stopTelemetryStream() {
+  if (telemetrySource) {
+    telemetrySource.close();
+    telemetrySource = null;
+  }
+  if (speedLabel) speedLabel.visible = false;
+  if (statusDot) statusDot.visible = false;
+  if (coordsLabel) coordsLabel.visible = false;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PUBLIC API — exposed to global scope for non-module code
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.initFleet3DViewer = function() {
+  initScene();
+};
+
+window.selectVehicle3D = function(vehicleId) {
+  initScene();
+  startTelemetryStream(vehicleId);
+
+  // Highlight the selected row in the table
+  document.querySelectorAll('#fleet-tbody tr').forEach(tr => {
+    tr.style.background = '';
+  });
+  document.querySelectorAll('#fleet-tbody tr').forEach(tr => {
+    if (tr.textContent.includes(vehicleId)) {
+      tr.style.background = 'var(--accent-subtle)';
+    }
+  });
+};
+
+window.stopVehicle3D = function() {
+  stopTelemetryStream();
+  currentVehicleId = null;
+  document.getElementById('telem-strip').style.display = 'none';
+  const empty = document.getElementById('viewer-empty-state');
+  if (empty) empty.style.display = '';
+  document.getElementById('viewer-vehicle-label').textContent = 'Select a vehicle below';
+  document.getElementById('viewer-vehicle-id').style.display = 'none';
+};
+
 </script>
 </body>
 </html>

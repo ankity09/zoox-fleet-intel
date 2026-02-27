@@ -1,42 +1,43 @@
 {
-  "$schema": "Template — Genie Space configuration",
+  "$schema": "Zoox Fleet Intelligence — Genie Space configuration",
   "$instructions": [
     "Genie Space creation requires multiple PATCH calls. The table_identifiers field is SILENTLY IGNORED.",
     "Tables MUST be set via serialized_space with sorted dotted identifiers.",
     "",
     "Step 1: Create a blank Genie Space via POST:",
-    "  databricks api post /api/2.0/genie/spaces --json '{\"serialized_space\": \"{\\\"version\\\": 2}\", \"warehouse_id\": \"<warehouse-id>\"}' --profile=<profile>",
-    "  # Returns: {\"space_id\": \"abc123...\"}",
+    "  databricks api post /api/2.0/genie/spaces --json '{\"serialized_space\": \"{\\\"version\\\": 2}\", \"warehouse_id\": \"55d3a94c50a43f96\"}' --profile=simplot-v1",
     "",
-    "Step 2: PATCH title and description (these work directly):",
-    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"title\": \"...\", \"description\": \"...\"}' --profile=<profile>",
+    "Step 2: PATCH title and description:",
+    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"title\": \"Zoox Fleet Data\", \"description\": \"...\"}' --profile=simplot-v1",
     "",
-    "Step 3: PATCH tables via serialized_space (ONLY way that works):",
-    "  Tables must be dotted 3-part names (catalog.schema.table), SORTED ALPHABETICALLY.",
-    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"serialized_space\": \"{\\\"version\\\":2,\\\"data_sources\\\":{\\\"tables\\\":[{\\\"identifier\\\":\\\"catalog.schema.table1\\\"},{\\\"identifier\\\":\\\"catalog.schema.table2\\\"}]}}\"}' --profile=<profile>",
+    "Step 3: PATCH tables via serialized_space (SORTED alphabetically):",
+    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"serialized_space\": \"{\\\"version\\\":2,\\\"data_sources\\\":{\\\"tables\\\":[{\\\"identifier\\\":\\\"serverless_simplot_v1_catalog.zoox_fleet_intel.demand_forecasts\\\"},{\\\"identifier\\\":\\\"serverless_simplot_v1_catalog.zoox_fleet_intel.events\\\"},{\\\"identifier\\\":\\\"serverless_simplot_v1_catalog.zoox_fleet_intel.rides\\\"},{\\\"identifier\\\":\\\"serverless_simplot_v1_catalog.zoox_fleet_intel.vehicles\\\"},{\\\"identifier\\\":\\\"serverless_simplot_v1_catalog.zoox_fleet_intel.zones\\\"}]}}\"}' --profile=simplot-v1",
     "",
-    "Step 4: PATCH instructions (optional but recommended):",
-    "  databricks api patch /api/2.0/genie/spaces/<space_id> --json '{\"instructions\": \"...\"}' --profile=<profile>",
-    "",
-    "Step 5: VERIFY tables are attached (table_identifiers in GET is always empty — check serialized_space):",
-    "  databricks api get /api/2.0/genie/spaces/<space_id>?include_serialized_space=true --profile=<profile>",
-    "",
-    "Step 6: Grant CAN_RUN permissions (endpoint is /permissions/genie/{id}, NOT /permissions/genie/spaces/{id}):",
-    "  databricks api patch /api/2.0/permissions/genie/<space_id> --json '{\"access_control_list\": [{\"group_name\": \"users\", \"permission_level\": \"CAN_RUN\"}]}' --profile=<profile>",
-    "",
-    "Step 7: Reference the Genie Space ID in the MAS config (agent_type: genie-space)"
+    "Step 4: PATCH instructions",
+    "Step 5: VERIFY with include_serialized_space=true",
+    "Step 6: Grant CAN_RUN: /api/2.0/permissions/genie/<space_id>",
+    "Step 7: Reference the Genie Space ID in the MAS config"
   ],
-  "name": "TODO Demo Data",
-  "description": "Natural language interface to TODO demo Delta Lake tables",
-  "warehouse_id": "TODO",
+  "name": "Zoox Fleet Data",
+  "description": "Natural language interface to Zoox autonomous fleet data — vehicles, rides, events, demand forecasts, and zones across Las Vegas and San Francisco",
+  "warehouse_id": "55d3a94c50a43f96",
   "tables": [
     {
-      "$comment": "List tables as dotted 3-part identifiers, SORTED ALPHABETICALLY. These go into serialized_space, NOT table_identifiers.",
-      "identifier": "TODO_CATALOG.TODO_SCHEMA.TODO_TABLE_1"
+      "$comment": "Tables listed as dotted 3-part identifiers, SORTED ALPHABETICALLY",
+      "identifier": "serverless_simplot_v1_catalog.zoox_fleet_intel.demand_forecasts"
     },
     {
-      "identifier": "TODO_CATALOG.TODO_SCHEMA.TODO_TABLE_2"
+      "identifier": "serverless_simplot_v1_catalog.zoox_fleet_intel.events"
+    },
+    {
+      "identifier": "serverless_simplot_v1_catalog.zoox_fleet_intel.rides"
+    },
+    {
+      "identifier": "serverless_simplot_v1_catalog.zoox_fleet_intel.vehicles"
+    },
+    {
+      "identifier": "serverless_simplot_v1_catalog.zoox_fleet_intel.zones"
     }
   ],
-  "instructions": "You are a data assistant for the TODO domain. Answer questions about TODO using SQL queries against the connected tables. Always provide specific numbers and be precise."
+  "instructions": "You are a data assistant for Zoox Fleet Intelligence. Answer questions about the autonomous robotaxi fleet operating in Las Vegas and San Francisco.\n\nKey terms:\n- Vehicle IDs: ZX-001 through ZX-050 (ZX-001 to ZX-030 in Las Vegas, ZX-031 to ZX-050 in San Francisco)\n- Zones: LV-STRIP, LV-DOWNTOWN, LV-ARENA, LV-SPHERE, LV-CONVENTION (Las Vegas); SF-SOMA, SF-MISSION, SF-EMBARCADERO, SF-CASTRO (San Francisco)\n- Venues: The Sphere, T-Mobile Arena, Las Vegas Convention Center (LV); Moscone Center, Chase Center (SF)\n- Statuses: active (operating), idle (waiting), charging, maintenance, en_route\n- demand_multiplier: how much event attendance amplifies base demand (1.5-4x)\n- demand_score: 0-1 prediction confidence, higher means more demand expected\n- Fares were $0 before December 2025 (free rides era), transitioned to $2-15 after\n\nAlways provide specific numbers. When asked about events, include venue, date, attendance, and demand multiplier. When asked about fleet status, break down by city and zone."
 }

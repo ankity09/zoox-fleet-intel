@@ -59,17 +59,17 @@ databricks current-user me --profile=<name>
 
 ## Project Identity
 
-- **Demo Name:** TODO
-- **Customer:** TODO
-- **Workspace URL:** TODO
-- **CLI Profile:** TODO
-- **Catalog:** TODO
-- **Schema:** TODO
-- **SQL Warehouse ID:** TODO
-- **Lakebase Instance:** TODO (use hyphens, NOT underscores)
-- **Lakebase Database:** TODO
-- **Lakebase MCP App Name:** TODO (e.g., `<demo-name>-lakebase-mcp`)
-- **MAS Tile ID:** TODO (first 8 chars of tile_id — see Gotcha #24 for discovery)
+- **Demo Name:** Zoox Fleet Intelligence Platform
+- **Customer:** Zoox
+- **Workspace URL:** https://fe-sandbox-serverless-simplot-v1.cloud.databricks.com
+- **CLI Profile:** simplot-v1
+- **Catalog:** serverless_simplot_v1_catalog
+- **Schema:** zoox_fleet_intel
+- **SQL Warehouse ID:** 55d3a94c50a43f96
+- **Lakebase Instance:** TODO (use hyphens, NOT underscores — created during deploy)
+- **Lakebase Database:** TODO (created during deploy)
+- **Lakebase MCP App Name:** TODO (e.g., `zoox-fleet-lakebase-mcp` — created during deploy)
+- **MAS Tile ID:** TODO (first 8 chars of tile_id — created during deploy, see Gotcha #24)
 
 ## Architecture — 3 Layers
 
