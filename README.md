@@ -14,6 +14,13 @@ Databricks demo: event-driven demand prediction, dynamic fleet rebalancing, ride
 
 If the original workspace has expired or you want to run this in your own environment, follow these steps.
 
+### Clone the Repo
+
+```bash
+git clone --recurse-submodules https://github.com/ankit-yadav_data/zoox-demo.git
+cd zoox-demo
+```
+
 ### Prerequisites
 
 - Databricks CLI installed (`brew install databricks/tap/databricks`)
