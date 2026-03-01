@@ -10,214 +10,120 @@ Databricks demo: event-driven demand prediction, dynamic fleet rebalancing, ride
 - **App:** https://zoox-fleet-intel-7474648424393858.aws.databricksapps.com
 - **Workspace:** https://fe-sandbox-serverless-simplot-v1.cloud.databricks.com
 
-## Redeploying to a Fresh Workspace
+## Quick Redeploy (New Workspace)
 
-If the original workspace has expired or you want to run this in your own environment, follow these steps.
+The `deploy/` module automates the entire redeployment. One command handles all 5 phases: Delta Lake tables, Lakebase setup, AI layer (Genie + MAS), app deployment, and permissions.
 
-### Clone the Repo
+```bash
+# Prerequisites: Databricks CLI installed, PyYAML installed (pip install pyyaml)
+
+# 1. Authenticate to the new workspace
+databricks auth login https://your-new-workspace.cloud.databricks.com --profile=new-ws
+
+# 2. Update demo-config.yaml with new workspace info
+#    - infrastructure.workspace_url
+#    - infrastructure.cli_profile
+#    - infrastructure.catalog
+#    - infrastructure.schema
+#    - infrastructure.sql_warehouse_id
+
+# 3. Run the deployer
+python -m deploy --profile=new-ws
+```
+
+### Deployer Options
+
+```bash
+python -m deploy --profile=new-ws              # Full deploy (all 5 phases)
+python -m deploy --profile=new-ws --phase=app  # Run a single phase
+python -m deploy --profile=new-ws --force      # Force full rebuild
+python -m deploy --status                      # Show current deploy state
+```
+
+### What Each Phase Does
+
+| Phase | What it creates |
+|-------|----------------|
+| **delta_lake** | Schema + 5 tables (zones, vehicles, events, rides, demand_forecasts) via pure SQL |
+| **lakebase** | Instance + database + core/domain schemas + seed data (6 tables) |
+| **ai_layer** | Genie Space + MAS Supervisor + UC HTTP Connection |
+| **app** | Databricks App + resource registration + redeploy for env var injection |
+| **permissions** | Catalog/schema/table grants, MAS CAN_QUERY, Genie CAN_RUN, Lakebase grants |
+
+State is tracked in `deploy-state.json` (gitignored). Completed phases are skipped on re-run. Failed phases restart automatically.
+
+### Manual Redeployment
+
+<details>
+<summary>If you prefer to run each step manually (click to expand)</summary>
+
+#### Prerequisites
+
+- Databricks CLI installed (`brew install databricks/tap/databricks`)
+- Access to an FEVM workspace (or any serverless-enabled workspace)
+
+#### Clone the Repo
 
 ```bash
 git clone --recurse-submodules https://github.com/ankit-yadav_data/zoox-demo.git
 cd zoox-demo
 ```
 
-### Prerequisites
-
-- Databricks CLI installed (`brew install databricks/tap/databricks`)
-- `gh` CLI or git configured
-- Access to an FEVM workspace (or any serverless-enabled workspace)
-
-### Step 1: Create a New Workspace
+#### Step 1: Create a New Workspace
 
 ```bash
 # Option A: Use vibe's FEVM skill
-# /databricks-fe-vm-workspace-deployment → Template 3 (Serverless), AWS, name: zoox-demo
+# /databricks-fe-vm-workspace-deployment → Template 3 (Serverless), AWS
 
-# Option B: Manual FEVM request
-# Request at go/fevm, choose serverless template
+# Option B: Manual FEVM request at go/fevm
 ```
 
-### Step 2: Authenticate CLI
+#### Step 2: Authenticate CLI
 
 ```bash
-databricks auth login https://fe-sandbox-serverless-<your-name>.cloud.databricks.com --profile=<your-profile>
-databricks current-user me --profile=<your-profile>
+databricks auth login https://fe-sandbox-serverless-<name>.cloud.databricks.com --profile=<profile>
+databricks current-user me --profile=<profile>
 ```
 
-### Step 3: Update Config Values
-
-You need to update these values across the project to match your new workspace:
-
-| Value | Where to find it | Files to update |
-|-------|-----------------|-----------------|
-| **Catalog** | Auto-created: `serverless_<name_underscored>_catalog` | `app/app.yaml`, `notebooks/01_setup_schema.sql`, `notebooks/02_generate_data.py`, `genie_spaces/config.json`, `CLAUDE.md` |
-| **Schema** | Keep `zoox_fleet_intel` or rename | Same as above |
-| **SQL Warehouse ID** | Workspace UI → SQL Warehouses → copy ID | `app/app.yaml`, `CLAUDE.md` |
-| **CLI Profile** | Whatever you used in Step 2 | `.mcp.json`, `CLAUDE.md` |
-
-### Step 4: Create Delta Lake Tables
-
-Run notebooks in order from the workspace UI (import as notebooks):
+#### Step 3: Create Delta Lake Tables
 
 ```bash
-# 1. Create schema
-# Import notebooks/01_setup_schema.sql → Run All
-
-# 2. Generate synthetic data (~50 vehicles, 180 days of rides, events, forecasts)
-# Import notebooks/02_generate_data.py → Run All
+# Update catalog/schema in demo-config.yaml, then:
+python -m deploy --profile=<profile> --phase=delta_lake
 ```
 
-### Step 5: Set Up Lakebase
+#### Step 4: Set Up Lakebase
 
 ```bash
-PROFILE=<your-profile>
-INSTANCE=<pick-a-name>  # use hyphens, e.g. zoox-fleet-db
-DATABASE=zoox_fleet_intel
-
-# Create instance (~6 min)
-databricks database create-database-instance $INSTANCE --capacity CU_1 --profile=$PROFILE
-
-# Poll until AVAILABLE (not RUNNING)
-databricks database get-database-instance $INSTANCE --profile=$PROFILE -o json | jq '.state'
-
-# Create database
-databricks psql $INSTANCE --profile=$PROFILE -- -c "CREATE DATABASE $DATABASE;"
-
-# Apply schemas
-databricks psql $INSTANCE --profile=$PROFILE -- -d $DATABASE -f lakebase/core_schema.sql
-databricks psql $INSTANCE --profile=$PROFILE -- -d $DATABASE -f lakebase/domain_schema.sql
-
-# Seed data
-databricks psql $INSTANCE --profile=$PROFILE -- -d $DATABASE -f notebooks/03_seed_lakebase.py
-# Or use: python notebooks/03_seed_lakebase.py (with local psycopg2 + generate-database-credential)
+python -m deploy --profile=<profile> --phase=lakebase
 ```
 
-### Step 6: Create Genie Space
+#### Step 5: Create AI Layer (Genie + MAS)
 
 ```bash
-PROFILE=<your-profile>
-CATALOG=<your-catalog>
-SCHEMA=zoox_fleet_intel
-WH_ID=<your-warehouse-id>
-
-# Create blank space
-databricks api post /api/2.0/genie/spaces --json "{
-  \"serialized_space\": \"{\\\"version\\\": 2}\",
-  \"warehouse_id\": \"$WH_ID\"
-}" --profile=$PROFILE
-# Save the space_id from response
-
-SPACE_ID=<from-above>
-
-# Set title
-databricks api patch /api/2.0/genie/spaces/$SPACE_ID --json '{
-  "title": "Zoox Fleet Data Space",
-  "description": "Query fleet operations data — vehicles, rides, events, zones, demand forecasts"
-}' --profile=$PROFILE
-
-# Attach tables (MUST be sorted alphabetically)
-databricks api patch /api/2.0/genie/spaces/$SPACE_ID --json "{
-  \"serialized_space\": \"{\\\"version\\\":2,\\\"data_sources\\\":{\\\"tables\\\":[{\\\"identifier\\\":\\\"$CATALOG.$SCHEMA.demand_forecasts\\\"},{\\\"identifier\\\":\\\"$CATALOG.$SCHEMA.events\\\"},{\\\"identifier\\\":\\\"$CATALOG.$SCHEMA.rides\\\"},{\\\"identifier\\\":\\\"$CATALOG.$SCHEMA.vehicles\\\"},{\\\"identifier\\\":\\\"$CATALOG.$SCHEMA.zones\\\"}]}}\"
-}" --profile=$PROFILE
-
-# Grant access
-databricks api patch /api/2.0/permissions/genie/$SPACE_ID --json '{
-  "access_control_list": [{"group_name": "users", "permission_level": "CAN_RUN"}]
-}' --profile=$PROFILE
+python -m deploy --profile=<profile> --phase=ai_layer
 ```
 
-Update `GENIE_SPACE_ID` in `app/app.yaml`.
-
-### Step 7: Create MAS (Multi-Agent Supervisor)
+#### Step 6: Deploy the App
 
 ```bash
-# Create MAS with genie agent first (POST can't include external-mcp-server)
-databricks api post /api/2.0/multi-agent-supervisors --json @agent_bricks/mas_config.json --profile=$PROFILE
-
-# Find the tile ID
-databricks api get /api/2.0/serving-endpoints --profile=$PROFILE | \
-  jq '.endpoints[] | select(.name | startswith("mas-")) | .tile_endpoint_metadata.tile_id'
+python -m deploy --profile=<profile> --phase=app
 ```
 
-Update `MAS_TILE_ID` (first 8 chars) in `app/app.yaml`.
-
-### Step 8: Deploy the App
+#### Step 7: Grant Permissions
 
 ```bash
-PROFILE=<your-profile>
-APP_NAME=zoox-fleet-intel
-YOUR_EMAIL=<your-databricks-email>
-
-# Sync code to workspace
-databricks sync ./app /Workspace/Users/$YOUR_EMAIL/zoox-fleet-intel/app --profile=$PROFILE --watch=false
-
-# Create app
-databricks apps create $APP_NAME --profile=$PROFILE
-
-# Deploy
-databricks apps deploy $APP_NAME --source-code-path /Workspace/Users/$YOUR_EMAIL/zoox-fleet-intel/app --profile=$PROFILE
-
-# Register resources (CRITICAL — app.yaml resources are NOT auto-registered)
-databricks apps update $APP_NAME --json '{
-  "resources": [
-    {"name": "sql-warehouse", "sql_warehouse": {"id": "<warehouse-id>", "permission": "CAN_USE"}},
-    {"name": "mas-endpoint", "serving_endpoint": {"name": "mas-<tile-8-chars>-endpoint", "permission": "CAN_QUERY"}},
-    {"name": "database", "database": {"instance_name": "<instance>", "database_name": "zoox_fleet_intel", "permission": "CAN_CONNECT_AND_CREATE"}}
-  ]
-}' --profile=$PROFILE
-
-# Redeploy (injects PGHOST/PGPORT/PGDATABASE/PGUSER env vars)
-databricks apps deploy $APP_NAME --source-code-path /Workspace/Users/$YOUR_EMAIL/zoox-fleet-intel/app --profile=$PROFILE
+python -m deploy --profile=<profile> --phase=permissions
 ```
 
-### Step 9: Grant Permissions
-
-```bash
-PROFILE=<your-profile>
-
-# Get app SP client ID
-databricks apps get $APP_NAME --profile=$PROFILE -o json | jq '.service_principal.client_id'
-
-SP_ID=<app-sp-client-id>
-
-# Grant catalog/schema access
-databricks api post /api/2.0/sql/statements --json "{
-  \"warehouse_id\": \"<warehouse-id>\",
-  \"statement\": \"GRANT USE_CATALOG ON CATALOG <catalog> TO \\\`$SP_ID\\\`\"
-}" --profile=$PROFILE
-
-databricks api post /api/2.0/sql/statements --json "{
-  \"warehouse_id\": \"<warehouse-id>\",
-  \"statement\": \"GRANT USE_SCHEMA ON SCHEMA <catalog>.zoox_fleet_intel TO \\\`$SP_ID\\\`\"
-}" --profile=$PROFILE
-
-databricks api post /api/2.0/sql/statements --json "{
-  \"warehouse_id\": \"<warehouse-id>\",
-  \"statement\": \"GRANT SELECT ON SCHEMA <catalog>.zoox_fleet_intel TO \\\`$SP_ID\\\`\"
-}" --profile=$PROFILE
-
-# Grant CAN_QUERY on MAS endpoint (use endpoint UUID, not name)
-ENDPOINT_UUID=$(databricks api get /api/2.0/serving-endpoints --profile=$PROFILE | \
-  jq -r '.endpoints[] | select(.name | startswith("mas-")) | .id')
-
-databricks api patch /api/2.0/permissions/serving-endpoints/$ENDPOINT_UUID \
-  --json "{\"access_control_list\":[{\"service_principal_name\":\"$SP_ID\",\"permission_level\":\"CAN_QUERY\"}]}" \
-  --profile=$PROFILE
-
-# Grant Lakebase table access to SP
-databricks psql <instance> --profile=$PROFILE -- -d zoox_fleet_intel -c "
-GRANT ALL ON ALL TABLES IN SCHEMA public TO \"$SP_ID\";
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"$SP_ID\";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"$SP_ID\";
-"
-```
-
-### Step 10: Verify
+#### Step 8: Verify
 
 Open the app URL in a browser (OAuth login required). Check:
 - `GET /api/health` returns `{"status": "healthy"}` with all three checks passing
 - Dashboard shows KPI data
 - AI Chat responds (may take 30s for cold start)
+
+</details>
 
 ## Project Structure
 
@@ -234,10 +140,29 @@ app/
       helpers.py        # Input validation, response parsing
   frontend/src/
     index.html          # Single-file frontend (HTML + CSS + JS)
+deploy/                 # Redeployment orchestrator
+  __main__.py           # CLI entry point (python -m deploy)
+  deployer.py           # Phase orchestrator with state tracking
+  state.py              # deploy-state.json management
+  config.py             # Read/write demo-config.yaml + app.yaml
+  databricks_api.py     # Thin CLI/REST/SQL wrapper
+  phases/
+    phase_1_delta_lake.py   # Schema + SQL data generation
+    phase_2_lakebase.py     # Instance, database, schemas, seed
+    phase_3_ai_layer.py     # Genie Space, MAS, UC Connection
+    phase_4_app.py          # App deploy + resource registration
+    phase_5_permissions.py  # All permission grants
+  sql/
+    create_zones.sql        # 9 zone definitions
+    create_vehicles.sql     # 50 vehicles (hash-based)
+    create_events.sql       # ~200 venue events
+    create_rides.sql        # ~50K ride records
+    create_demand_forecasts.sql  # ~5K forecasts
+    seed_lakebase.sql       # Lakebase operational seed data
 notebooks/
   01_setup_schema.sql   # Create catalog + schema
-  02_generate_data.py   # Generate Delta Lake tables
-  03_seed_lakebase.py   # Seed Lakebase tables
+  02_generate_data.py   # Generate Delta Lake tables (notebook version)
+  03_seed_lakebase.py   # Seed Lakebase tables (notebook version)
 lakebase/
   core_schema.sql       # Required tables (notes, agent_actions, workflows)
   domain_schema.sql     # Domain tables (fleet_actions, surge_alerts, dispatch_overrides)
