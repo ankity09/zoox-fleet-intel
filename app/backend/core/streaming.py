@@ -258,12 +258,12 @@ async def stream_mas_chat(
                     json=payload,
                     headers={"Authorization": auth, "Content-Type": "application/json"},
                 ) as resp:
-                    # Detect expired OBO token — fallback to SP token before giving up
+                    # Detect expired/invalid OBO token — signal frontend to reload for fresh token
                     if resp.status_code in (401, 403) and user_token:
-                        log.warning("MAS %d with user token — falling back to SP token", resp.status_code)
-                        _, auth = await asyncio.to_thread(_get_mas_auth)
-                        user_token = ""  # prevent infinite retry
-                        continue  # retry the while loop with SP auth
+                        log.warning("MAS %d with user token — triggering session refresh", resp.status_code)
+                        yield f"data: {json.dumps({'type': 'session_expired'})}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
                     elif resp.status_code in (401, 403):
                         # SP token also failed — signal frontend to refresh
                         log.error("MAS %d with SP token — session truly expired", resp.status_code)

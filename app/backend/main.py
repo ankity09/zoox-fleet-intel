@@ -102,11 +102,8 @@ def _load_chat_history() -> list[dict]:
 
 def _clear_chat_history():
     global _chat_session_id
-    if _chat_session_id:
-        try:
-            write_pg("DELETE FROM chat_sessions WHERE session_id = %s", (_chat_session_id,))
-        except Exception:
-            pass
+    # Do NOT delete the session — keep it in history.
+    # Just reset the pointer so the next message creates a new session.
     _chat_session_id = None
 
 # ─── Action card config for your domain ───────────────────────────────────
@@ -168,33 +165,76 @@ app = FastAPI(title="Demo App", lifespan=lifespan)
 app.include_router(health_router)
 
 
+# ─── Debug endpoint ──────────────────────────────────────────────────────
+@app.get("/api/debug/token")
+async def debug_token(request: Request):
+    """Debug: check if OBO token is being forwarded by Databricks Apps proxy."""
+    tok = request.headers.get("x-forwarded-access-token", "")
+    return {
+        "has_token": bool(tok),
+        "token_length": len(tok),
+        "token_prefix": tok[:20] + "..." if tok else None,
+        "scopes_hint": "If has_token=false, open app in incognito window to get fresh OAuth token"
+    }
+
+
 # ─── Chat endpoint (MAS streaming) ───────────────────────────────────────
 
 @app.post("/api/chat")
 async def chat(request: Request, body: dict):
     """Streaming SSE endpoint for MAS chat with MCP approval flow.
 
-    Normal message:   {"message": "Create a PO...", "auto_approve_mcp": true}
-    MCP approval:     {"approve_mcp": true}  or  {"approve_mcp": false}
+    Normal message:   {"message": "...", "session_id": "chat-...", "auto_approve_mcp": true}
+    MCP approval:     {"approve_mcp": true, "session_id": "chat-..."}
     """
     approve_mcp = body.get("approve_mcp", None)
     auto_approve_mcp = body.get("auto_approve_mcp", False)
     message = body.get("message", "").strip()
     context = body.get("context", "").strip()
+    session_id = body.get("session_id", "").strip()
 
-    # Extract OBO token for MAS calls (required for MCP tools, auto-refreshes on expiry)
     user_token = request.headers.get("x-forwarded-access-token", "")
 
-    # Determine starting state
+    # ── Per-session DB helpers (no shared global state) ───────────────────
+    def _db_load(sid: str) -> list[dict]:
+        if not sid:
+            return []
+        try:
+            rows = run_pg_query(
+                "SELECT role, content FROM chat_messages WHERE session_id = %s ORDER BY created_at ASC",
+                (sid,),
+            )
+            return [{"role": r["role"], "content": r["content"]} for r in rows]
+        except Exception:
+            return []
+
+    def _db_save(sid: str, role: str, content: str):
+        if not sid:
+            return
+        try:
+            write_pg(
+                "INSERT INTO chat_messages (session_id, role, content) VALUES (%s, %s, %s)",
+                (sid, role, content),
+            )
+            if role == "user":
+                title = content[:100] + ("..." if len(content) > 100 else "")
+                write_pg(
+                    "UPDATE chat_sessions SET updated_at = NOW(), title = COALESCE(NULLIF(title, 'New conversation'), %s) WHERE session_id = %s",
+                    (title, sid),
+                )
+            else:
+                write_pg("UPDATE chat_sessions SET updated_at = NOW() WHERE session_id = %s", (sid,))
+        except Exception as e:
+            log.warning("Could not save message to session %s: %s", sid, e)
+
+    # ── Determine starting state ─────────────────────────────────────────
     mcp_state = get_mcp_pending()
     if approve_mcp is not None and mcp_state:
-        # Continuing from MCP approval — build input from saved state
         log.info("MCP APPROVAL received: approve=%s", approve_mcp)
         all_accumulated = mcp_state["accumulated"]
         tools_called = mcp_state["tools_called"]
         lakebase_called = mcp_state["lakebase_called"]
         approval_round = mcp_state["round"]
-
         for req in mcp_state["pending"]:
             all_accumulated.append({
                 "type": "mcp_approval_response",
@@ -202,25 +242,26 @@ async def chat(request: Request, body: dict):
                 "approval_request_id": req.get("id", ""),
                 "approve": bool(approve_mcp),
             })
-        start_messages = list(_chat_history[-10:]) + all_accumulated
+        session_history = await asyncio.to_thread(_db_load, session_id)
+        start_messages = session_history[-10:] + all_accumulated
         clear_mcp_pending()
     elif approve_mcp is not None and not mcp_state:
-        # Stale approval — no pending state
         async def stale():
             yield f"data: {json.dumps({'type': 'error', 'text': 'No pending MCP approval.'})}\n\n"
             yield "data: [DONE]\n\n"
         return StreamingResponse(stale(), media_type="text/event-stream")
     else:
-        # New user message
         if not message:
             raise HTTPException(400, "Empty message")
         full_message = f"Context: {context}\n\nQuestion: {message}" if context else message
-        _chat_history.append({"role": "user", "content": full_message})
-        try:
-            _save_chat_message("user", full_message)
-        except Exception:
-            pass
-        start_messages = list(_chat_history[-10:])
+        await asyncio.to_thread(_db_save, session_id, "user", full_message)
+        session_history = await asyncio.to_thread(_db_load, session_id)
+        # If Lakebase is down, session_history is []. Always ensure the user
+        # message reaches MAS — otherwise MAS gets input:[] and crashes.
+        if session_history:
+            start_messages = session_history[-10:]
+        else:
+            start_messages = [{"role": "user", "content": full_message}]
         all_accumulated = []
         tools_called = set()
         lakebase_called = False
@@ -229,7 +270,7 @@ async def chat(request: Request, body: dict):
     async def event_stream():
         final_text = ""
         async for chunk in stream_mas_chat(
-            message, _chat_history, ACTION_CARD_TABLES,
+            message, session_history, ACTION_CARD_TABLES,
             user_token=user_token,
             auto_approve_mcp=auto_approve_mcp,
             start_messages=start_messages,
@@ -239,7 +280,6 @@ async def chat(request: Request, body: dict):
             initial_approval_round=approval_round,
         ):
             yield chunk
-            # Track final text for chat history
             if chunk.startswith("data: ") and chunk.strip() != "data: [DONE]":
                 try:
                     evt = json.loads(chunk[6:])
@@ -247,13 +287,8 @@ async def chat(request: Request, body: dict):
                         final_text += evt.get("text", "")
                 except (json.JSONDecodeError, KeyError):
                     pass
-        # Save final response to chat history
         if final_text:
-            _chat_history.append({"role": "assistant", "content": final_text})
-            try:
-                _save_chat_message("assistant", final_text)
-            except Exception:
-                pass
+            await asyncio.to_thread(_db_save, session_id, "assistant", final_text)
 
     return StreamingResponse(
         _sse_keepalive(event_stream()),
@@ -281,6 +316,43 @@ async def clear_chat():
     _chat_history.clear()
     await asyncio.to_thread(_clear_chat_history)
     return {"status": "cleared"}
+
+
+@app.get("/api/chat/sessions")
+async def list_chat_sessions():
+    """Return all chat sessions for the history sidebar."""
+    def _list():
+        try:
+            return run_pg_query(
+                "SELECT session_id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 50"
+            )
+        except Exception:
+            return []
+    sessions = await asyncio.to_thread(_list)
+    return {"sessions": sessions, "current": _chat_session_id or ""}
+
+
+@app.post("/api/chat/sessions/new")
+async def new_chat_session():
+    """Create a new chat session."""
+    sid = await asyncio.to_thread(_new_chat_session)
+    return {"session_id": sid}
+
+
+@app.post("/api/chat/sessions/{session_id}/switch")
+async def switch_chat_session(session_id: str):
+    """Return messages for an existing session so the frontend can render them."""
+    def _load():
+        try:
+            rows = run_pg_query(
+                "SELECT role, content FROM chat_messages WHERE session_id = %s ORDER BY created_at ASC",
+                (session_id,),
+            )
+            return [{"role": r["role"], "content": r["content"]} for r in rows]
+        except Exception:
+            return []
+    messages = await asyncio.to_thread(_load)
+    return {"session_id": session_id, "messages": messages}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -413,7 +485,12 @@ async def _fetch_mas_agents() -> list[dict]:
     if tile and tile != "TODO":
         try:
             ep = await asyncio.to_thread(w.serving_endpoints.get, f"mas-{tile}-endpoint")
-            full_uuid = ep.tile_endpoint_metadata.tile_id
+            # tile_endpoint_metadata may not exist in older SDK versions; fall back to serving endpoint config
+            meta = getattr(ep, "tile_endpoint_metadata", None)
+            full_uuid = meta.tile_id if meta else None
+            if not full_uuid:
+                # Try to parse from endpoint config/tags as a last resort
+                raise AttributeError("tile_endpoint_metadata not available")
             host, auth = await asyncio.to_thread(_get_mas_auth)
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(
@@ -1339,7 +1416,7 @@ def _build_briefing_context() -> str:
             "SELECT COUNT(*) as total_vehicles, "
             "SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, "
             "AVG(battery_pct) as avg_battery "
-            "FROM serverless_simplot_v1_catalog.zoox_fleet_intel.vehicles"
+            f"FROM {_FQ}.vehicles"
         )
         if fleet_metrics:
             m = fleet_metrics[0]
@@ -1348,9 +1425,9 @@ def _build_briefing_context() -> str:
         pass
     try:
         upcoming = run_query(
-            "SELECT event_name, venue, event_date, expected_attendance, demand_multiplier "
-            "FROM serverless_simplot_v1_catalog.zoox_fleet_intel.events "
-            "WHERE event_date >= CURRENT_DATE() ORDER BY event_date LIMIT 5"
+            f"SELECT event_name, venue, event_date, expected_attendance, demand_multiplier "
+            f"FROM {_FQ}.events "
+            f"WHERE event_date >= CURRENT_DATE() ORDER BY event_date LIMIT 5"
         )
         if upcoming:
             event_lines = []
@@ -1390,13 +1467,11 @@ async def get_briefing():
         host, auth = await asyncio.to_thread(_get_mas_auth)
         tile = MAS_TILE_ID
         if tile and tile != "TODO":
-            ep = await asyncio.to_thread(w.serving_endpoints.get, f"mas-{tile}-endpoint")
-            full_uuid = ep.tile_endpoint_metadata.tile_id
+            # tile_endpoint_metadata may not exist in older SDK versions — skip gracefully
             # TODO(vibe): Customize the briefing prompt for your domain
             prompt = f"Generate a brief morning operational briefing (3-5 bullet points). Focus on items needing attention. Data:\n{context}"
             payload = {
                 "messages": [{"role": "user", "content": prompt}],
-                "multi_agent_supervisor_id": full_uuid,
             }
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
@@ -1437,12 +1512,9 @@ async def stream_briefing():
             return
         try:
             host, auth = await asyncio.to_thread(_get_mas_auth)
-            ep = await asyncio.to_thread(w.serving_endpoints.get, f"mas-{tile}-endpoint")
-            full_uuid = ep.tile_endpoint_metadata.tile_id
             prompt = f"Generate a brief morning operational briefing (3-5 bullet points). Focus on items needing attention. Data:\n{context}"
             payload = {
                 "messages": [{"role": "user", "content": prompt}],
-                "multi_agent_supervisor_id": full_uuid,
                 "stream": True,
             }
             async with httpx.AsyncClient(timeout=120) as client:
@@ -1574,7 +1646,7 @@ class DispatchOverrideCreate(BaseModel):
     override_by: str = "operator"
 
 
-_FQ = "serverless_simplot_v1_catalog.zoox_fleet_intel"
+_FQ = f"{CATALOG}.{SCHEMA}" if CATALOG and SCHEMA else "serverless_simplot_v1_catalog.zoox_fleet_intel"
 
 
 @app.get("/api/fleet/metrics")
@@ -1799,18 +1871,31 @@ async def get_fleet_events(
     """Event list with demand predictions."""
     where = []
     if city:
-        where.append(f"city = '{_safe(city)}'")
+        where.append(f"e.city = '{_safe(city)}'")
     if venue:
-        where.append(f"venue = '{_safe(venue)}'")
+        where.append(f"e.venue = '{_safe(venue)}'")
     if event_type:
-        where.append(f"event_type = '{_safe(event_type)}'")
+        where.append(f"e.event_type = '{_safe(event_type)}'")
     if upcoming_only:
-        where.append("event_date >= CURRENT_DATE()")
+        where.append("e.event_date >= CURRENT_DATE()")
     clause = " WHERE " + " AND ".join(where) if where else ""
     return await asyncio.to_thread(
         run_query,
-        f"SELECT * FROM {_FQ}.events{clause} ORDER BY event_date DESC LIMIT 100",
+        f"SELECT e.*, z.latitude, z.longitude, z.zone_name "
+        f"FROM {_FQ}.events e LEFT JOIN {_FQ}.zones z ON e.zone = z.zone_id"
+        f"{clause} ORDER BY e.event_date DESC LIMIT 200",
     )
+
+
+@app.get("/api/fleet/events/upcoming")
+async def get_upcoming_events():
+    """Events in the next 7 days, sorted by date."""
+    return await asyncio.to_thread(run_query, f"""
+        SELECT * FROM {_FQ}.events
+        WHERE event_date >= CURRENT_DATE()
+          AND event_date <= DATE_ADD(CURRENT_DATE(), 7)
+        ORDER BY event_date ASC, start_time ASC
+    """)
 
 
 @app.get("/api/fleet/events/{event_id}")
@@ -1979,6 +2064,28 @@ async def create_fleet_action(body: FleetActionCreate):
     )
 
 
+@app.patch("/api/fleet/fleet-actions/{action_id}")
+async def update_fleet_action(action_id: int, body: dict):
+    """Update fleet action status (approve, dismiss, execute)."""
+    new_status = body.get("status", "")
+    allowed = ("approved", "dismissed", "executed", "failed")
+    if new_status not in allowed:
+        raise HTTPException(400, f"Status must be one of: {allowed}")
+    set_parts = ["status = %s"]
+    params: list = [new_status]
+    if new_status in ("approved", "executed"):
+        set_parts.append("executed_at = NOW()")
+    params.append(action_id)
+    result = await asyncio.to_thread(
+        write_pg,
+        f"UPDATE fleet_actions SET {', '.join(set_parts)} WHERE action_id = %s RETURNING *",
+        tuple(params),
+    )
+    if not result:
+        raise HTTPException(404, f"Fleet action {action_id} not found")
+    return result
+
+
 @app.get("/api/fleet/dispatch-overrides")
 async def list_dispatch_overrides():
     """List dispatch overrides from Lakebase."""
@@ -2090,19 +2197,6 @@ async def get_fleet_rides(
         "page": page,
         "per_page": per_page,
     }
-
-
-# ─── Upcoming Events ────────────────────────────────────────────────────
-
-@app.get("/api/fleet/events/upcoming")
-async def get_upcoming_events():
-    """Events in the next 7 days, sorted by date."""
-    return await asyncio.to_thread(run_query, f"""
-        SELECT * FROM {_FQ}.events
-        WHERE event_date >= CURRENT_DATE()
-          AND event_date <= DATE_ADD(CURRENT_DATE(), 7)
-        ORDER BY event_date ASC, start_time ASC
-    """)
 
 
 # ─── Morning Briefing (Data Endpoint) ────────────────────────────────────

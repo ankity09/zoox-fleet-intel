@@ -5,7 +5,7 @@
 
 # COMMAND ----------
 
-CATALOG = "serverless_simplot_v1_catalog"
+CATALOG = "main"
 SCHEMA = "zoox_fleet_intel"
 spark.sql(f"USE CATALOG {CATALOG}")
 spark.sql(f"USE SCHEMA {SCHEMA}")
@@ -336,6 +336,41 @@ for venue_info in EVENT_VENUES:
             demand_multiplier=demand_mult,
         ))
 
+# === DEMO ANCHOR EVENTS (hardcoded for demo narrative) ===
+# These guarantee today's high-profile events appear in the data regardless
+# of the hash-based generation window (which only covers the past 6 months).
+_TODAY_DATE = TODAY  # date object — matches DateType() schema
+anchor_events = [
+    Row(
+        event_id="EVT-DEMO-001",
+        venue="The Sphere",
+        event_name="Sphere Experience: Coldplay Residency",
+        event_type="concert",
+        city="Las Vegas",
+        zone="LV-SPHERE",
+        expected_attendance=16500,
+        event_date=_TODAY_DATE,
+        start_time="20:00",
+        end_time="23:00",
+        demand_multiplier=3.5,
+    ),
+    Row(
+        event_id="EVT-DEMO-002",
+        venue="T-Mobile Arena",
+        event_name="VGK vs Oilers - Playoff Game 3",
+        event_type="hockey",
+        city="Las Vegas",
+        zone="LV-ARENA",
+        expected_attendance=18000,
+        event_date=_TODAY_DATE,
+        start_time="19:00",
+        end_time="22:30",
+        demand_multiplier=2.8,
+    ),
+]
+events_rows.extend(anchor_events)
+print("Added", len(anchor_events), "demo anchor events for", _TODAY_DATE)
+
 df_events = spark.createDataFrame(events_rows, events_schema)
 df_events.write.mode("overwrite").saveAsTable("events")
 print("Created events table with", df_events.count(), "rows")
@@ -630,6 +665,38 @@ for day_offset in range(0, 8):
                 confidence=confidence,
                 model_version="v2.3",
             ))
+
+# === DEMO ANCHOR FORECAST ROWS (hardcoded for demo narrative) ===
+# Pin demand_score for tonight's anchor event hours so the dashboard
+# always shows the expected surge regardless of hash-based variation.
+# These rows use IDs prefixed "FC-DEMO-" to avoid colliding with fc_counter.
+_anchor_forecast_rows = [
+    # Coldplay Residency at The Sphere — 20:00–23:00
+    Row(forecast_id="FC-DEMO-001", zone_id="LV-SPHERE", city="Las Vegas",
+        forecast_date=TODAY, hour=20, predicted_demand=58, predicted_supply=7,
+        demand_score=0.92, confidence=0.96, model_version="v2.3"),
+    Row(forecast_id="FC-DEMO-002", zone_id="LV-SPHERE", city="Las Vegas",
+        forecast_date=TODAY, hour=21, predicted_demand=62, predicted_supply=6,
+        demand_score=0.92, confidence=0.95, model_version="v2.3"),
+    Row(forecast_id="FC-DEMO-003", zone_id="LV-SPHERE", city="Las Vegas",
+        forecast_date=TODAY, hour=22, predicted_demand=55, predicted_supply=7,
+        demand_score=0.92, confidence=0.94, model_version="v2.3"),
+    # VGK vs Oilers - Playoff Game 3 at T-Mobile Arena — 19:00–22:30
+    Row(forecast_id="FC-DEMO-004", zone_id="LV-ARENA", city="Las Vegas",
+        forecast_date=TODAY, hour=19, predicted_demand=48, predicted_supply=7,
+        demand_score=0.85, confidence=0.96, model_version="v2.3"),
+    Row(forecast_id="FC-DEMO-005", zone_id="LV-ARENA", city="Las Vegas",
+        forecast_date=TODAY, hour=20, predicted_demand=52, predicted_supply=6,
+        demand_score=0.85, confidence=0.95, model_version="v2.3"),
+    Row(forecast_id="FC-DEMO-006", zone_id="LV-ARENA", city="Las Vegas",
+        forecast_date=TODAY, hour=21, predicted_demand=50, predicted_supply=7,
+        demand_score=0.85, confidence=0.94, model_version="v2.3"),
+    Row(forecast_id="FC-DEMO-007", zone_id="LV-ARENA", city="Las Vegas",
+        forecast_date=TODAY, hour=22, predicted_demand=44, predicted_supply=8,
+        demand_score=0.85, confidence=0.93, model_version="v2.3"),
+]
+forecasts_rows.extend(_anchor_forecast_rows)
+print("Added", len(_anchor_forecast_rows), "demo anchor forecast rows for LV-SPHERE and LV-ARENA tonight.")
 
 print("Generated", len(forecasts_rows), "forecast records. Writing to Delta Lake...")
 

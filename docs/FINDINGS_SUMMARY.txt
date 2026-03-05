@@ -1,0 +1,234 @@
+================================================================================
+SESSION MANAGEMENT BUG ANALYSIS - ZOOX DEMO
+================================================================================
+
+COMMAND OUTPUTS & ANALYSIS
+================================================================================
+
+1. BACKEND STATE VARIABLES (lines 1-40 of main.py)
+   - _chat_history: list[dict] = []           (in-memory, per-process)
+   - _chat_session_id: str | None = None      (global session pointer)
+   - Both are shared across ALL concurrent requests (NO LOCKS)
+
+2. KEY FUNCTIONS IN BACKEND
+   - _ensure_chat_session()  → Gets or creates session ID
+   - _new_chat_session()     → Creates new session (sets _chat_session_id)
+   - _load_chat_history()    → Loads messages from Lakebase for a session
+   - _clear_chat_history()   → Resets session pointer (NOT delete messages)
+
+3. CHAT ENDPOINT (line 183: @app.post("/api/chat"))
+   - Reads _chat_history
+   - Appends user message to _chat_history
+   - Streams MAS response
+   - Appends assistant response to _chat_history
+   - No synchronization with session switching
+
+4. SWITCH ENDPOINT (lines 318-324)
+   @app.post("/api/chat/sessions/{session_id}/switch")
+   - Clears _chat_history
+   - Sets _chat_session_id
+   - Loads new session's messages
+   - NO LOCK → Race condition with concurrent /api/chat calls
+
+5. FRONTEND STATE
+   - _chatAbortController: AbortController   (controls streaming)
+   - _chatStreaming: boolean                 (flag for send button)
+   - _lastUserMessage: string                (for retry)
+
+6. FRONTEND CHAT SEND (line 1607)
+   - Creates new AbortController
+   - Streams response with signal
+   - On complete: sets _chatStreaming = false, clears _chatAbortController = null
+   - If interrupted: stopChat() cancels AbortController
+
+7. SESSION SWITCHING (lines 1821-1851)
+   newChatSession()           → Does NOT call stopChat()
+   switchChatSession()        → Does NOT call stopChat()
+   → Both switch sessions while _chatAbortController is still active
+
+================================================================================
+BUG #1: ZOMBIE STREAM (FRONTEND)
+================================================================================
+
+BEFORE SESSION SWITCH:
+  Time     Frontend State              Backend State
+  ----     ------------------          ---------------
+  T=0s     User sends "Tell me..."      /api/chat starts streaming
+           _chatAbortController = AC#1
+           _chatStreaming = true
+
+  T=0.5s   User clicks "Session B"
+           switchChatSession() called
+           (NO stopChat call!)
+           AC#1 is STILL ACTIVE ←──────  Stream continues...
+           
+  T=1s     Backend: switch_chat_session() runs
+           _chat_history.clear()
+           _chat_session_id = "Session-B"
+           
+           Frontend: renders Session B messages
+           Switches UI to new session
+           
+  T=5s     AC#1 stream finally completes
+           _chatStreaming = false       ←── TOO LATE
+           AC#1 = null                     (UI already switched)
+
+MEMORY IMPACT:
+  - AC#1 remains in memory until garbage collected
+  - If user switches sessions frequently, AC pool grows unbounded
+  - Browser memory usage increases over time
+
+BEHAVIOR IMPACT:
+  - Old stream's final response is discarded (not saved)
+  - If AC#1 completes AFTER UI switches, message might corrupt new session's display
+  - _chatStreaming flag may desynchronize from actual streaming state
+
+
+BUG #2: RACE CONDITION (BACKEND)
+================================================================================
+
+SCENARIO: User switches sessions then immediately sends message
+
+Time    Frontend              Backend State                    Backend State
+----    --------              ----------------                 ---------------
+T=0s    click Session B       /api/chat/sessions/B/switch
+        send "Status?"        starts...
+
+T=0.1ms                       Line 322: _chat_history.clear()
+                              _chat_history = []
+                              
+        /api/chat POST        
+        with message          
+        "Status?"
+        (concurrent!)
+        
+T=0.2ms                       Line 323: _chat_session_id = "Session-B"
+                              Line 324: await _load_chat_history()
+                              (loading Session B's old messages)
+                              
+        Reads _chat_history   EMPTY! (was just cleared)
+        Appends user msg      _chat_history = [
+        to _chat_history        {"role": "user", "content": "Status?"}
+                              ]
+        
+        Builds start_messages _chat_history[-10:] = 
+        from _chat_history    [{"role": "user", "content": "Status?"}]
+        
+        Starts streaming      (WITH NO PRIOR CONTEXT)
+        
+T=1ms                         Line 325: _chat_history.extend(
+                                Session B's 50 prior messages
+                              )
+                              Now _chat_history has messages,
+                              but /api/chat already started
+                              streaming with empty context
+
+RESULT:
+  ✗ Chat stream has no context from Session B
+  ✗ MAS thinks this is a new conversation
+  ✗ Agent response ignores domain context
+  ✗ Message gets saved to Session B with wrong context
+
+
+BUG #3: ORPHANED ABORT CONTROLLER (FRONTEND)
+================================================================================
+
+When newChatSession() is called:
+  Current Code:
+    async function newChatSession() {
+      try { await fetch('/api/chat/sessions/new', {method:'POST'}); }
+      // NO ABORT!
+    }
+
+  Problem:
+    If streaming was in progress:
+      - _chatAbortController is still active
+      - _chatStreaming is still true
+      - Clicking send button does nothing (guard: if (_chatStreaming) return)
+      - After stream completes, state becomes inconsistent
+
+  Same issue in switchChatSession()
+
+================================================================================
+IMPACT MATRIX
+================================================================================
+
+User Action                Current Behavior           Expected Behavior
+-----------                ----------------           -----------------
+Switch session while       Stream continues,          Stream cancels,
+streaming                  then completes.            new session renders.
+                           Memory leak.               Clean state.
+
+Click "New Chat" while     Old stream leaks.          Stream cancels,
+streaming                  Session mixing.            fresh start.
+
+Switch sessions then       Message loses prior        Message includes
+send message immediately   context. MAS confused.     full session context.
+
+Switch multiple times      AC pool grows.             AC cleaned up each time.
+rapidly                    Memory usage increases.    Constant memory.
+
+
+================================================================================
+CODE SNIPPETS FOR ANALYSIS
+================================================================================
+
+BACKEND: switch_chat_session (BUGGY)
+├─ Line 318: @app.post("/api/chat/sessions/{session_id}/switch")
+├─ Line 321: global _chat_session_id
+├─ Line 322: _chat_history.clear()              ← Clears immediately
+├─ Line 323: _chat_session_id = session_id      ← Sets immediately
+├─ Line 324: messages = await ... _load_chat_history()  ← Takes time
+└─ Line 325: _chat_history.extend(...)          ← Too late if /api/chat ran
+
+BACKEND: /api/chat (BUGGY - reads _chat_history unsafely)
+├─ Line 192: _chat_history.append({...})        ← No lock
+├─ Line 197: start_messages = list(_chat_history[-10:])  ← May be empty
+
+FRONTEND: sendChat (has AbortController)
+├─ Line 1607: _chatAbortController = new AbortController()
+├─ Line 1613: signal: _chatAbortController.signal
+└─ Line 1784: _chatAbortController = null       ← Cleanup at end
+
+FRONTEND: switchChatSession (NO ABORT - BUGGY)
+├─ Line 1829: async function switchChatSession(sessionId)
+├─ Missing: if (_chatAbortController) { ... abort() }
+└─ Just renders new messages
+
+FRONTEND: newChatSession (NO ABORT - BUGGY)
+├─ Line 1821: async function newChatSession()
+├─ Missing: if (_chatAbortController) { ... abort() }
+└─ Just clears DOM
+
+================================================================================
+RISK ASSESSMENT
+================================================================================
+
+Frequency:    HIGH - Users switch sessions and send messages constantly
+Severity:     CRITICAL - Causes memory leaks, context loss, confuses MAS
+Root Cause:   Architectural - Shared global state, no synchronization
+Scope:        Both frontend and backend need fixes
+Time to Fix:  2-3 hours (low complexity, straightforward locks)
+
+
+================================================================================
+TESTING EVIDENCE
+================================================================================
+
+File Locations:
+  /Users/ankit.yadav/Desktop/Databricks/Customers/Zoox/zoox-demo/app/backend/main.py
+  - Lines 1-40: Global state
+  - Lines 318-325: Buggy switch endpoint
+  - Lines 183-270: /api/chat endpoint
+
+  /Users/ankit.yadav/Desktop/Databricks/Customers/Zoox/zoox-demo/app/frontend/src/index.html
+  - Lines 1483, 1485: Global abort controller, streaming flag
+  - Lines 1607-1613: Send with AbortController
+  - Lines 1784-1785: Cleanup (ONLY on success)
+  - Lines 1799-1801: stopChat() function
+  - Lines 1821-1826: newChatSession() - NO ABORT
+  - Lines 1829-1851: switchChatSession() - NO ABORT
+
+Summary Report:
+  docs/SESSION_MANAGEMENT_BUGS.md (detailed analysis with fixes)
+

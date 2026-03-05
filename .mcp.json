@@ -9,7 +9,7 @@
       ],
       "type": "stdio",
       "env": {
-        "DATABRICKS_CONFIG_PROFILE": "simplot-v1"
+        "DATABRICKS_CONFIG_PROFILE": "ay-sandbox"
       }
     }
   }

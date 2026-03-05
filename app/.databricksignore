@@ -1,0 +1,15 @@
+# Exclude frontend source and build tools — only the compiled dist/ is needed
+frontend/node_modules/
+frontend/src/
+frontend/tsconfig*.json
+frontend/vite.config.ts
+frontend/package-lock.json
+frontend/package.json
+
+# Python cache
+__pycache__/
+*.pyc
+.DS_Store
+
+# Databricks sync state
+.databricks/

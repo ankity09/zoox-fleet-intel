@@ -3,7 +3,21 @@ __pycache__/
 .env
 .venv/
 *.egg-info/
-dist/
 build/
 .DS_Store
 deploy-state.json
+
+# Frontend: single-file HTML — no build tooling needed
+app/frontend/node_modules/
+app/frontend/dist/
+app/frontend/package-lock.json
+
+# Databricks sync state
+app/.databricks/
+app/.databrickssyncignore
+.databrickssyncignore
+
+# Temporary analysis files
+ANALYSIS_COMPLETE.txt
+BUG_ANALYSIS_INDEX.md
+SESSION_BUG_EXECUTIVE_SUMMARY.md

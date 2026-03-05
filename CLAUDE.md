@@ -637,6 +637,35 @@ Without `token_endpoint` in the connection options, the UC API defaults to beare
 ### 45. `databricks apps deploy` clears resources array
 Deploying resets `resources: []`. Any resources registered before the deploy are lost. **Fix:** Always use the 3-step cycle: (1) deploy code, (2) register resources via `databricks apps update`, (3) redeploy to inject `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`. Verify with `databricks apps get ... | jq '.resources'`.
 
+### 47. After every deploy: re-grant warehouse CAN_USE + fix Lakebase SP role
+Every `databricks apps deploy` resets both SQL warehouse permissions AND the Lakebase autoscale SP role. Run this immediately after each deploy:
+
+```bash
+# 1. Re-grant warehouse CAN_USE
+databricks api patch /api/2.0/permissions/warehouses/<warehouse-id> \
+  --json '{"access_control_list":[{"service_principal_name":"<sp-client-id>","permission_level":"CAN_USE"}]}' \
+  --profile=<profile>
+
+# 2. Re-register app resources
+databricks apps update <app-name> --json '{"resources": [...]}' --profile=<profile>
+
+# 3. Restore Lakebase SP role (autoscale resets NOLOGIN + clears security label on each deploy)
+databricks database generate-lakebase-autoscale-credential \
+  --json '{"endpoint": "projects/<uuid>/branches/<branch>/endpoints/primary"}' --profile=<profile>
+# Then run via psql:
+ALTER ROLE "<sp-client-id>" LOGIN;
+SECURITY LABEL FOR databricks_auth ON ROLE "<sp-client-id>" IS 'id=<sp-numeric-id>,type=SERVICE_PRINCIPAL';
+GRANT ALL ON ALL TABLES IN SCHEMA public TO "<sp-client-id>";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "<sp-client-id>";
+```
+
+**Symptoms:** `PermissionDenied: You do not have permission to use the SQL Warehouse` (Delta Lake fails) AND `role "..." is not permitted to log in` (Lakebase fails). Both happen together after every deploy.
+
+**For zoox-fleet-intel specifically:**
+- Warehouse: `ed02571b45fb8e8b`, SP: `c14fde51-747f-4294-959c-1f13ad5f7f37`, numeric SP ID: `78098698354062`
+- Autoscale endpoint: `projects/495c97bf-05d2-4937-8320-ca849768cd76/branches/br-floral-glade-d2gvkww0/endpoints/primary`
+- Lakebase host: `ep-still-poetry-d24im7sb.database.us-east-1.cloud.databricks.com`, database: `zoox_fleet_intel`
+
 ### 46. asyncio.gather resilience in ALL Lakebase-touching endpoints
 Health check passes (`SELECT 1`) but individual endpoints fail because they query Lakebase tables without error handling. **Root causes:** `/api/agent-overview` has 7 queries without `return_exceptions=True`; `/api/architecture` inner gather mixes Delta+Lakebase without it; `/api/exceptions` has no try/except; dashboard `Promise.all` lacks `.catch()`. **Fix:** Every `asyncio.gather` with `run_pg_query` needs `return_exceptions=True`. Every frontend `Promise.all` needs `.catch()` on each call.
 
