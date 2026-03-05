@@ -5,6 +5,14 @@ Databricks demo: event-driven demand prediction, dynamic fleet rebalancing, ride
 **Stack:** FastAPI + single-file HTML/JS frontend, deployed as a Databricks App.
 **Data:** Delta Lake (analytics) + Lakebase/PostgreSQL (OLTP) + Genie Space (NL queries) + MAS Agent Bricks (AI chat).
 
+## Screenshots
+
+![AI Chat — Fleet Advisor analyzing event demand](docs/images/ai-chat.png)
+
+![Architecture — Data sources, AI agents, and orchestration](docs/images/architecture.png)
+
+![Fleet Status — 3D vehicle viewer with live telemetry](docs/images/fleet-status.png)
+
 ## Live Demo
 
 - **App:** https://zoox-fleet-intel-7474648424393858.aws.databricksapps.com

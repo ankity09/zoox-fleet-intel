@@ -1475,7 +1475,7 @@ async def get_briefing():
             }
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
-                    f"{host}/api/2.0/serving-endpoints/mas-{tile}-endpoint/invocations",
+                    f"{host}/serving-endpoints/mas-{tile}-endpoint/invocations",
                     headers={"Authorization": auth, "Content-Type": "application/json"},
                     json=payload,
                 )
@@ -1520,7 +1520,7 @@ async def stream_briefing():
             async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream(
                     "POST",
-                    f"{host}/api/2.0/serving-endpoints/mas-{tile}-endpoint/invocations",
+                    f"{host}/serving-endpoints/mas-{tile}-endpoint/invocations",
                     headers={"Authorization": auth, "Content-Type": "application/json"},
                     json=payload,
                 ) as resp:

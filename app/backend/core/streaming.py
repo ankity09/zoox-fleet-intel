@@ -97,7 +97,11 @@ async def _sse_keepalive(gen, interval: float = 10.0):
             if isinstance(item, Exception):
                 raise item
             yield item
-    except GeneratorExit:
+    except (GeneratorExit, asyncio.CancelledError):
+        # Both GeneratorExit (aclose) and CancelledError (ASGI server cancelling
+        # the request task on client disconnect) mean the client is gone.
+        # Do NOT cancel the producer — let it finish draining event_stream()
+        # so the final answer gets saved to chat history via _db_save().
         disconnected = True
         log.warning("SSE client disconnected after %d keepalives — backend continues in background", keepalive_count)
     finally:
