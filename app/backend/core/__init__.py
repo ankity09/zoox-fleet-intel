@@ -12,6 +12,15 @@ from backend.core.lakebase import (
 from backend.core.streaming import stream_mas_chat, _sse_keepalive, _get_mas_auth, get_mcp_pending, clear_mcp_pending
 from backend.core.health import health_check
 from backend.core.helpers import _safe, _extract_agent_response
+from backend.core.livefeed import (
+    LiveFeedEngine,
+    StreamConfig,
+    EntityConfig,
+    create_streaming_router,
+    geo_interpolate,
+    geo_heading,
+    scenario_modifier,
+)
 
 __all__ = [
     "run_query",
@@ -26,4 +35,11 @@ __all__ = [
     "health_check",
     "_safe",
     "_extract_agent_response",
+    "LiveFeedEngine",
+    "StreamConfig",
+    "EntityConfig",
+    "create_streaming_router",
+    "geo_interpolate",
+    "geo_heading",
+    "scenario_modifier",
 ]

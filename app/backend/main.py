@@ -30,6 +30,7 @@ from backend.core.lakebase import _init_pg_pool
 from backend.core.health import health_router
 from backend.core.streaming import stream_mas_chat, _sse_keepalive, get_mcp_pending, clear_mcp_pending
 from backend.core import run_query, run_pg_query, write_pg, _safe, _get_mas_auth
+from backend.core.livefeed import LiveFeedEngine, StreamConfig, EntityConfig, create_streaming_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("app")
@@ -1822,6 +1823,109 @@ def _get_telemetry(vehicle_id: str, zone: str, status: str, battery_pct: int) ->
         "status": status,
         "zone": zone,
     }
+
+
+# ── Zone-to-vehicle assignment (matches notebooks/02_generate_data.py) ────
+_LV_ZONES = ["LV-STRIP", "LV-DOWNTOWN", "LV-ARENA", "LV-SPHERE", "LV-CONVENTION"]
+_SF_ZONES = ["SF-SOMA", "SF-MISSION", "SF-EMBARCADERO", "SF-CASTRO"]
+
+_ZONE_ASSIGNMENTS: dict[str, str] = {}
+for _i in range(1, 51):
+    _vid = f"ZX-{_i:03d}"
+    _opts = _LV_ZONES if _i <= 30 else _SF_ZONES
+    _ZONE_ASSIGNMENTS[_vid] = _opts[hash(f"home-zone-{_vid}") % len(_opts)]
+
+
+# ── Live feed telemetry generator ─────────────────────────────────────────
+
+def _taxi_telemetry_generator(entity: EntityConfig, progress: float, elapsed: float, scenario: str) -> dict:
+    """Generate a taxi telemetry row as SQL literals for INSERT."""
+    vid = entity.entity_id
+    zone = entity.metadata.get("zone", "LV-STRIP")
+    status = entity.metadata.get("status", "active")
+    battery = entity.metadata.get("battery_pct", 80)
+
+    telem = _get_telemetry(vid, zone, status, battery)
+
+    # Apply scenario modifications
+    if scenario == "low_battery":
+        battery = max(5, int(80 - 75 * progress))
+        telem["battery_pct"] = battery
+        telem["battery_range_miles"] = round(battery * 1.2, 1)
+    elif scenario == "sensor_fault" and progress > 0.4:
+        telem["lidar_status"] = "degraded"
+        if progress > 0.6:
+            telem["camera_status"] = "degraded"
+
+    return {
+        "vehicle_id": f"'{vid}'",
+        "timestamp": "CURRENT_TIMESTAMP()",
+        "latitude": str(telem["latitude"]),
+        "longitude": str(telem["longitude"]),
+        "heading_deg": str(telem["heading_deg"]),
+        "speed_mph": str(telem["speed_mph"]),
+        "battery_pct": str(telem["battery_pct"]),
+        "battery_range_mi": str(telem["battery_range_miles"]),
+        "motor_temp_f": str(telem["motor_temp_f"]),
+        "cabin_temp_f": str(telem["cabin_temp_f"]),
+        "passenger_count": str(telem["passenger_count"]),
+        "lidar_status": f"'{telem['lidar_status']}'",
+        "camera_status": f"'{telem['camera_status']}'",
+        "status": f"'{telem['status']}'",
+        "zone": f"'{telem['zone']}'",
+    }
+
+
+# ── Initialize LiveFeedEngine ─────────────────────────────────────────────
+
+_live_engine = LiveFeedEngine(run_query_fn=run_query, catalog=CATALOG, schema=SCHEMA)
+
+_taxi_entities: list[EntityConfig] = []
+for _i in range(1, 51):
+    _vid = f"ZX-{_i:03d}"
+    _zone = _ZONE_ASSIGNMENTS.get(_vid, "LV-STRIP")
+    _scenario = "normal"
+    if _vid in ("ZX-047", "ZX-048", "ZX-049", "ZX-050"):
+        _scenario = "low_battery"
+    elif _vid in ("ZX-044", "ZX-045", "ZX-046"):
+        _scenario = "sensor_fault"
+    _taxi_entities.append(EntityConfig(
+        entity_id=_vid,
+        origin=_ZONE_COORDS.get(_zone, (36.1147, -115.1728)),
+        scenario=_scenario,
+        metadata={"zone": _zone, "status": "active", "battery_pct": 80},
+    ))
+
+_live_engine.configure(
+    streams=[StreamConfig(
+        name="taxi_telemetry",
+        table="taxi_telemetry",
+        cadence_seconds=10,
+        generator=_taxi_telemetry_generator,
+        batch_size=50,
+    )],
+    entities=_taxi_entities,
+)
+
+# Mount streaming control endpoints at /api/fleet
+app.include_router(create_streaming_router(_live_engine, prefix="/api/fleet"))
+
+
+@app.get("/api/fleet/live-positions")
+async def get_live_positions():
+    """Get latest telemetry for all vehicles from the streaming table."""
+    rows = await asyncio.to_thread(
+        run_query,
+        f"""SELECT t.* FROM {_FQ}.taxi_telemetry t
+            INNER JOIN (
+                SELECT vehicle_id, MAX(timestamp) as max_ts
+                FROM {_FQ}.taxi_telemetry
+                WHERE timestamp >= CURRENT_TIMESTAMP() - INTERVAL '5' MINUTE
+                GROUP BY vehicle_id
+            ) latest ON t.vehicle_id = latest.vehicle_id AND t.timestamp = latest.max_ts
+            ORDER BY t.vehicle_id""",
+    )
+    return rows or []
 
 
 @app.get("/api/fleet/telemetry/{vehicle_id}")

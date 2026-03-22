@@ -830,6 +830,35 @@ tr:hover td { background:var(--accent-subtle); }
 .viewer-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:8px; }
 .viewer-empty .ve-icon { width:48px; height:48px; background:var(--surface); border-radius:50%; display:flex; align-items:center; justify-content:center; }
 .viewer-empty p { font-size:13px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE FLEET FEED — ZeroBus real-time streaming
+   ═══════════════════════════════════════════════════════════════════════════ */
+.zb-bar { background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:16px; overflow:hidden; }
+.zb-bar-header { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--border); }
+.zb-bar-header h3 { font-size:13px; font-weight:600; margin:0; display:flex; align-items:center; gap:8px; color:var(--primary); }
+.zb-bar-kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--border); }
+.zb-kpi { background:var(--card-bg); padding:12px 16px; text-align:center; }
+.zb-kpi-label { font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); font-weight:600; margin-bottom:4px; }
+.zb-kpi-value { font-size:20px; font-weight:700; color:var(--text); }
+.zb-toggle { background:var(--accent); color:var(--primary); border:none; padding:7px 16px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:6px; }
+.zb-toggle:hover { background:var(--accent-hover); }
+.zb-toggle.active { background:var(--red); color:#fff; }
+.zb-pulse { width:8px; height:8px; border-radius:50%; background:var(--text-muted); display:inline-block; }
+.zb-pulse.live { background:var(--green); animation:zbPulseAnim 1.5s infinite; }
+@keyframes zbPulseAnim { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+/* Live fleet map */
+.live-map-card { background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:16px; overflow:hidden; }
+.live-map-header { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--border); }
+.live-map-header h3 { font-size:14px; font-weight:600; margin:0; display:flex; align-items:center; gap:8px; color:var(--primary); }
+.taxi-marker { width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.25); cursor:pointer; transition:transform .15s; }
+.taxi-marker:hover { transform:scale(1.4); }
+.taxi-marker.active { background:var(--green); }
+.taxi-marker.en_route { background:#8b5cf6; }
+.taxi-marker.charging { background:var(--blue); }
+.taxi-marker.idle { background:var(--yellow); }
+.taxi-marker.low_battery { background:var(--red); }
 </style>
 </head>
 <body>
@@ -867,6 +896,37 @@ tr:hover td { background:var(--accent-subtle); }
       </div>
       <!-- Fleet KPI strip -->
       <div class="kpi-row" id="dash-kpis"></div>
+
+      <!-- Live Fleet Feed -->
+      <div id="live-feed-bar" class="zb-bar" style="display:none;">
+        <div class="zb-bar-header">
+          <h3>
+            <span class="zb-pulse" id="zb-pulse"></span>
+            <span id="feed-status-text">Fleet Telemetry: Off</span>
+            <span class="pill pill-blue" style="font-size:9px">ZeroBus</span>
+          </h3>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span id="feed-elapsed" style="font-size:11px;color:var(--text-muted)"></span>
+            <button id="feed-toggle-btn" class="zb-toggle" onclick="toggleLiveFeed()">&#x25B6; Start Live Feed</button>
+          </div>
+        </div>
+        <div class="zb-bar-kpis">
+          <div class="zb-kpi"><div class="zb-kpi-label">Active Taxis</div><div class="zb-kpi-value" id="kpi-active">--</div></div>
+          <div class="zb-kpi"><div class="zb-kpi-label">Avg Battery</div><div class="zb-kpi-value" id="kpi-battery">--</div></div>
+          <div class="zb-kpi"><div class="zb-kpi-label">Low Battery</div><div class="zb-kpi-value" id="kpi-low-batt" style="color:var(--red)">--</div></div>
+          <div class="zb-kpi"><div class="zb-kpi-label">Sensor Alerts</div><div class="zb-kpi-value" id="kpi-sensor" style="color:var(--yellow)">--</div></div>
+          <div class="zb-kpi"><div class="zb-kpi-label">Rows/min</div><div class="zb-kpi-value" id="kpi-rows">--</div></div>
+        </div>
+      </div>
+
+      <!-- Live Fleet Map -->
+      <div id="live-map-card" class="live-map-card" style="display:none;">
+        <div class="live-map-header">
+          <h3><i data-lucide="map-pin" style="width:14px;height:14px"></i> Live Fleet Map</h3>
+          <span class="pill pill-green pill-live" id="map-live-pill" style="display:none">LIVE</span>
+        </div>
+        <div id="live-fleet-map" style="height:400px;"></div>
+      </div>
       <!-- Two-column: Zone Status + Upcoming Events -->
       <div class="grid-2">
         <div class="card collapsible-section" id="dash-zones-section">
@@ -3910,6 +3970,206 @@ function renderReasoningChain(chain) {
   }).join('');
   return `<div class="rc-wrapper"><label>Reasoning Chain</label><div class="rc-chain">${steps}</div></div>`;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE FEED — ZeroBus real-time fleet telemetry
+   ═══════════════════════════════════════════════════════════════════════════ */
+let liveFeedActive = false;
+let feedPollInterval = null;
+let liveMap = null;
+let liveMarkers = {};
+
+async function checkFeedStatus() {
+  try {
+    const st = await fetchApi('/api/fleet/live-feed-status');
+    if (st.running !== undefined) {
+      // Feed endpoints exist — show the bar
+      document.getElementById('live-feed-bar').style.display = '';
+      if (st.running) {
+        liveFeedActive = true;
+        _setFeedUI(true, st);
+        startFeedPolling();
+      }
+    }
+  } catch(e) {
+    // Endpoints not available — hide bar
+    document.getElementById('live-feed-bar').style.display = 'none';
+  }
+}
+
+async function toggleLiveFeed() {
+  const btn = document.getElementById('feed-toggle-btn');
+  btn.disabled = true;
+  try {
+    if (!liveFeedActive) {
+      const res = await postApi('/api/fleet/start-live-feed?duration=300', {});
+      if (res.status === 'started' || res.status === 'already_running') {
+        liveFeedActive = true;
+        _setFeedUI(true, res);
+        startFeedPolling();
+      }
+    } else {
+      await postApi('/api/fleet/stop-live-feed', {});
+      liveFeedActive = false;
+      _setFeedUI(false);
+      stopFeedPolling();
+    }
+  } catch(e) {
+    console.error('Feed toggle error:', e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _setFeedUI(running, data) {
+  const btn = document.getElementById('feed-toggle-btn');
+  const pulse = document.getElementById('zb-pulse');
+  const statusText = document.getElementById('feed-status-text');
+  const mapCard = document.getElementById('live-map-card');
+  const mapPill = document.getElementById('map-live-pill');
+  if (running) {
+    btn.innerHTML = '&#x25A0; Stop Feed';
+    btn.classList.add('active');
+    pulse.classList.add('live');
+    statusText.textContent = 'Fleet Telemetry: Streaming';
+    mapCard.style.display = '';
+    mapPill.style.display = '';
+    if (!liveMap) initLiveMap();
+  } else {
+    btn.innerHTML = '&#x25B6; Start Live Feed';
+    btn.classList.remove('active');
+    pulse.classList.remove('live');
+    statusText.textContent = 'Fleet Telemetry: Off';
+    mapPill.style.display = 'none';
+    // Reset KPIs
+    ['kpi-active','kpi-battery','kpi-low-batt','kpi-sensor','kpi-rows'].forEach(id => {
+      document.getElementById(id).textContent = '--';
+    });
+  }
+}
+
+function startFeedPolling() {
+  if (feedPollInterval) return;
+  loadLivePositions(); // immediate
+  loadFeedStats();
+  feedPollInterval = setInterval(() => {
+    loadLivePositions();
+    loadFeedStats();
+  }, 10000);
+}
+
+function stopFeedPolling() {
+  if (feedPollInterval) { clearInterval(feedPollInterval); feedPollInterval = null; }
+}
+
+async function loadFeedStats() {
+  try {
+    const st = await fetchApi('/api/fleet/live-feed-status');
+    if (!st.running) {
+      liveFeedActive = false;
+      _setFeedUI(false);
+      stopFeedPolling();
+      return;
+    }
+    const elapsed = document.getElementById('feed-elapsed');
+    elapsed.textContent = Math.round(st.elapsed_seconds) + 's / ' + st.duration + 's';
+    const stats = st.stats?.taxi_telemetry || {};
+    const rows = stats.rows_inserted || 0;
+    const mins = Math.max(st.elapsed_seconds / 60, 1/60);
+    document.getElementById('kpi-rows').textContent = fmt(Math.round(rows / mins));
+  } catch(e) {}
+}
+
+async function loadLivePositions() {
+  try {
+    const positions = await fetchApi('/api/fleet/live-positions');
+    if (!positions || !positions.length) return;
+    // Update KPIs from positions
+    const active = positions.filter(p => p.status === 'active' || p.status === 'en_route').length;
+    const avgBatt = Math.round(positions.reduce((s,p) => s + (p.battery_pct||0), 0) / positions.length);
+    const lowBatt = positions.filter(p => (p.battery_pct||100) < 20).length;
+    const sensorAlerts = positions.filter(p => p.lidar_status === 'degraded' || p.camera_status === 'degraded').length;
+    document.getElementById('kpi-active').textContent = active;
+    document.getElementById('kpi-battery').textContent = avgBatt + '%';
+    document.getElementById('kpi-low-batt').textContent = lowBatt;
+    document.getElementById('kpi-sensor').textContent = sensorAlerts;
+    // Update map
+    if (liveMap) updateMapMarkers(positions);
+  } catch(e) {
+    console.warn('Live positions error:', e);
+  }
+}
+
+function initLiveMap() {
+  if (liveMap) return;
+  const container = document.getElementById('live-fleet-map');
+  liveMap = new maplibregl.Map({
+    container: container,
+    style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    center: [-115.17, 36.12],
+    zoom: 12,
+    attributionControl: false,
+  });
+  liveMap.addControl(new maplibregl.NavigationControl({showCompass: false}), 'bottom-right');
+}
+
+function updateMapMarkers(positions) {
+  if (!liveMap) return;
+  const seen = new Set();
+  positions.forEach(p => {
+    const id = p.vehicle_id;
+    seen.add(id);
+    const lat = p.latitude, lon = p.longitude;
+    if (!lat || !lon) return;
+
+    // Determine marker class
+    let cls = 'active';
+    if ((p.battery_pct||100) < 20) cls = 'low_battery';
+    else if (p.status === 'en_route') cls = 'en_route';
+    else if (p.status === 'charging') cls = 'charging';
+    else if (p.status === 'idle') cls = 'idle';
+
+    if (liveMarkers[id]) {
+      // Update existing marker position
+      liveMarkers[id].marker.setLngLat([lon, lat]);
+      liveMarkers[id].el.className = 'taxi-marker ' + cls;
+      liveMarkers[id].data = p;
+    } else {
+      // Create new marker
+      const el = document.createElement('div');
+      el.className = 'taxi-marker ' + cls;
+      const marker = new maplibregl.Marker({element: el})
+        .setLngLat([lon, lat])
+        .addTo(liveMap);
+      el.addEventListener('click', () => {
+        const d = liveMarkers[id]?.data || p;
+        new maplibregl.Popup({offset: 12, closeButton: true})
+          .setLngLat([d.longitude, d.latitude])
+          .setHTML(`
+            <div style="font-family:inherit;font-size:12px;line-height:1.5;">
+              <strong>${d.vehicle_id}</strong> — ${d.zone||''}<br>
+              Speed: ${fmt(d.speed_mph,1)} mph<br>
+              Battery: ${d.battery_pct}% (${fmt(d.battery_range_mi,0)} mi)<br>
+              Status: ${d.status}<br>
+              LIDAR: ${d.lidar_status} | Cam: ${d.camera_status}
+            </div>
+          `)
+          .addTo(liveMap);
+      });
+      liveMarkers[id] = {marker, el, data: p};
+    }
+  });
+  // Remove stale markers
+  Object.keys(liveMarkers).forEach(id => {
+    if (!seen.has(id)) {
+      liveMarkers[id].marker.remove();
+      delete liveMarkers[id];
+    }
+  });
+}
+
+// Auto-check feed status on dashboard load
+checkFeedStatus();
 
 /* ═══════════════════════════════════════════════════════════════════════════
    INIT
